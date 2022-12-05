@@ -19,6 +19,8 @@ package blockwitness
 
 import (
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -32,6 +34,19 @@ const (
 
 const (
 	TableName = `block_witness`
+)
+
+var (
+	checkPrevWitnessHeightMetric = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "zkbnb",
+		Name:      "witness_check_prev_height_db",
+		Help:      "witness check previous height",
+	})
+	saveWitnessMetric = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "zkbnb",
+		Name:      "witness_save_db",
+		Help:      "witness save into db",
+	})
 )
 
 type (
@@ -59,6 +74,8 @@ type (
 )
 
 func NewBlockWitnessModel(db *gorm.DB) BlockWitnessModel {
+	_ = prometheus.Register(checkPrevWitnessHeightMetric)
+	_ = prometheus.Register(saveWitnessMetric)
 	return &defaultBlockWitnessModel{
 		table: TableName,
 		DB:    db,
@@ -109,14 +126,18 @@ func (m *defaultBlockWitnessModel) GetBlockWitnessByHeight(height int64) (witnes
 }
 
 func (m *defaultBlockWitnessModel) CreateBlockWitness(witness *BlockWitness) error {
+	start := time.Now()
 	if witness.Height > 1 {
 		_, err := m.GetBlockWitnessByHeight(witness.Height - 1)
 		if err != nil {
 			return fmt.Errorf("previous witness does not exist")
 		}
 	}
+	checkPrevWitnessHeightMetric.Set(float64(time.Since(start).Milliseconds()))
 
+	start = time.Now()
 	dbTx := m.DB.Table(m.table).Create(witness)
+	saveWitnessMetric.Set(float64(time.Since(start).Milliseconds()))
 	if dbTx.Error != nil {
 		return types.DbErrSqlOperation
 	}

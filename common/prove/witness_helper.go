@@ -19,9 +19,10 @@ package prove
 
 import (
 	"fmt"
-	"math/big"
-
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/prometheus/client_golang/prometheus"
+	"math/big"
+	"time"
 
 	"github.com/bnb-chain/zkbnb-crypto/circuit"
 	cryptoTypes "github.com/bnb-chain/zkbnb-crypto/circuit/types"
@@ -34,6 +35,29 @@ import (
 	"github.com/bnb-chain/zkbnb/dao/tx"
 	"github.com/bnb-chain/zkbnb/tree"
 	"github.com/bnb-chain/zkbnb/types"
+)
+
+var (
+	constructSimpleWitnessInfoTime = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "zkbnb",
+		Name:      "witness_simple_construct_time",
+		Help:      "witness simple construct time",
+	})
+	constructAccountWitnessInfoTime = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "zkbnb",
+		Name:      "witness_acc_construct_time",
+		Help:      "witness acc construct time",
+	})
+	constructNftWitnessInfoTime = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "zkbnb",
+		Name:      "witness_nft_construct_time",
+		Help:      "witness nft construct time",
+	})
+	constructStateRootBeforeTime = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "zkbnb",
+		Name:      "witness_root_before_construct_time",
+		Help:      "witness state root before construct time",
+	})
 )
 
 type WitnessHelper struct {
@@ -50,8 +74,28 @@ type WitnessHelper struct {
 	nftTree     bsmt.SparseMerkleTree
 }
 
+func registerMetrics() error {
+	if err := prometheus.Register(constructSimpleWitnessInfoTime); err != nil {
+		return fmt.Errorf("prometheus.Register constructSimpleWitnessInfoTime error: %v", err)
+	}
+	if err := prometheus.Register(constructAccountWitnessInfoTime); err != nil {
+		return fmt.Errorf("prometheus.Register constructAccountWitnessInfoTime error: %v", err)
+	}
+	if err := prometheus.Register(constructNftWitnessInfoTime); err != nil {
+		return fmt.Errorf("prometheus.Register constructNftWitnessInfoTime error: %v", err)
+	}
+	if err := prometheus.Register(constructStateRootBeforeTime); err != nil {
+		return fmt.Errorf("prometheus.Register constructStateRootBeforeTime error: %v", err)
+	}
+	return nil
+}
+
 func NewWitnessHelper(treeCtx *tree.Context, accountTree, nftTree bsmt.SparseMerkleTree,
 	assetTrees *tree.AssetTreeCache, accountModel account.AccountModel, accountHistoryModel account.AccountHistoryModel) *WitnessHelper {
+	err := registerMetrics()
+	if err != nil {
+		return nil
+	}
 	return &WitnessHelper{
 		treeCtx:             treeCtx,
 		accountModel:        accountModel,
@@ -125,19 +169,25 @@ func (w *WitnessHelper) constructWitnessInfo(
 	cryptoTx *TxWitness,
 	err error,
 ) {
+	start := time.Now()
 	accountKeys, proverAccounts, proverNftInfo, err := w.constructSimpleWitnessInfo(oTx)
+	constructSimpleWitnessInfoTime.Set(float64(time.Now().Sub(start).Milliseconds()))
 	if err != nil {
 		return nil, err
 	}
 	// construct account witness
+	start = time.Now()
 	accountRootBefore, accountsInfoBefore, merkleProofsAccountAssetsBefore, merkleProofsAccountBefore, err :=
 		w.constructAccountWitness(oTx, finalityBlockNr, accountKeys, proverAccounts)
+	constructAccountWitnessInfoTime.Set(float64(time.Now().Sub(start).Milliseconds()))
 	if err != nil {
 		return nil, err
 	}
 	// construct nft witness
+	start = time.Now()
 	nftRootBefore, nftBefore, merkleProofsNftBefore, err :=
 		w.constructNftWitness(proverNftInfo)
+	constructNftWitnessInfoTime.Set(float64(time.Now().Sub(start).Milliseconds()))
 	if err != nil {
 		return nil, err
 	}
