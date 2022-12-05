@@ -54,7 +54,6 @@ func Run(configFile string) error {
 		if err != nil {
 			logx.Severef("monitor governance blocks error, %v", err)
 		}
-
 	}); err != nil {
 		logx.Severe(err)
 		panic(err)
@@ -65,6 +64,17 @@ func Run(configFile string) error {
 		err := m.CleanHistoryBlocks()
 		if err != nil {
 			logx.Severef("clean history blocks error, %v", err)
+		}
+	}); err != nil {
+		logx.Severe(err)
+		panic(err)
+	}
+
+	// monitor system and business statement
+	if _, err := cronJob.AddFunc("@every 10s", func() {
+		err := m.MonitorSystemAndBusiness()
+		if err != nil {
+			logx.Severef("monitor system and business statement error, %v", err)
 		}
 	}); err != nil {
 		logx.Severe(err)
