@@ -90,7 +90,7 @@ type (
 		CommittedAt                     int64
 		VerifiedTxHash                  string
 		VerifiedAt                      int64
-		Txs                             []*tx.Tx `gorm:"-"`
+		Txs                             []*tx.Tx `gorm:"foreignKey:BlockId"`
 		BlockStatus                     int64    `gorm:"index"`
 		AccountIndexes                  string
 		NftIndexes                      string
