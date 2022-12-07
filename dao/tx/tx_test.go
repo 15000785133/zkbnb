@@ -47,12 +47,14 @@ func (s *Suite) TearDownTest() {
 
 func (s *Suite) TestUpdateTxsStatusInTransact() {
 	item := Tx{
-		Model: gorm.Model{
-			CreatedAt: time.Unix(10, 0),
-			UpdatedAt: time.Unix(10, 0),
+		PoolTx: PoolTx{
+			Model: gorm.Model{
+				CreatedAt: time.Unix(10, 0),
+				UpdatedAt: time.Unix(10, 0),
+			},
+			TxStatus:    StatusPacked,
+			BlockHeight: 100,
 		},
-		TxStatus:    StatusPacked,
-		BlockHeight: 100,
 	}
 
 	dbTx := s.db.DB.Create([]*Tx{&item})

@@ -46,7 +46,7 @@ func (s *PoolSuite) TearDownTest() {
 }
 
 func (s *PoolSuite) TestGetTxsByStatus() {
-	request := Tx{
+	request := PoolTx{
 		Model: gorm.Model{
 			CreatedAt: time.Unix(10, 0),
 			UpdatedAt: time.Unix(10, 0),
@@ -54,7 +54,7 @@ func (s *PoolSuite) TestGetTxsByStatus() {
 		TxStatus: StatusPending,
 	}
 
-	s.Require().NoError(s.dao.CreateTxs([]*Tx{&request}))
+	s.Require().NoError(s.dao.CreateTxs([]*PoolTx{&request}))
 
 	txs, err := s.dao.GetTxsByStatus(StatusPending)
 	s.Require().NoError(err)
@@ -62,17 +62,17 @@ func (s *PoolSuite) TestGetTxsByStatus() {
 }
 
 func (s *PoolSuite) TestUpdateTxsInTransact() {
-	request := Tx{
+	request := PoolTx{
 		Model: gorm.Model{
 			CreatedAt: time.Unix(10, 0),
 			UpdatedAt: time.Unix(10, 0),
 		},
 	}
 
-	s.Require().NoError(s.dao.CreateTxs([]*Tx{&request}))
+	s.Require().NoError(s.dao.CreateTxs([]*PoolTx{&request}))
 
 	request.AccountIndex = 10
-	err := s.dao.UpdateTxsInTransact(s.db.DB, []*Tx{&request})
+	err := s.dao.UpdateTxsInTransact(s.db.DB, []*Tx{{PoolTx: request}})
 	s.Require().NoError(err)
 
 	requestRes := &PoolTx{}
