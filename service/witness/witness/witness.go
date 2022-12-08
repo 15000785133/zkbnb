@@ -33,6 +33,31 @@ const (
 )
 
 var (
+	getNextBlockWitnessTimeMetric = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "zkbnb",
+		Name:      "witness_get_next_block_time",
+		Help:      "witness get next block time",
+	})
+	constructWitnessTimeMetric = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "zkbnb",
+		Name:      "witness_construct_time",
+		Help:      "witness construct time",
+	})
+	constructTxWitnessTimeMetric = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "zkbnb",
+		Name:      "witness_tx_construct_time",
+		Help:      "witness tx construct time",
+	})
+	commitTreesTimeMetric = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "zkbnb",
+		Name:      "witness_commit_trees_time",
+		Help:      "witness commit trees time",
+	})
+	insertDbTimeMetric = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "zkbnb",
+		Name:      "witness_insert_db_time",
+		Help:      "witness insert db time",
+	})
 	l2WitnessHeightMetrics = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: "zkbnb",
 		Name:      "l2_witness_height",
@@ -62,8 +87,20 @@ type Witness struct {
 }
 
 func NewWitness(c config.Config) (*Witness, error) {
-	if err := prometheus.Register(l2WitnessHeightMetrics); err != nil {
-		return nil, fmt.Errorf("prometheus.Register l2WitnessHeightMetrics error: %v", err)
+	if err := prometheus.Register(constructWitnessTimeMetric); err != nil {
+		return nil, fmt.Errorf("prometheus.Register constructWitnessTimeMetric error: %v", err)
+	}
+	if err := prometheus.Register(commitTreesTimeMetric); err != nil {
+		return nil, fmt.Errorf("prometheus.Register commitTreesTimeMetric error: %v", err)
+	}
+	if err := prometheus.Register(insertDbTimeMetric); err != nil {
+		return nil, fmt.Errorf("prometheus.Register insertDbTimeMetric error: %v", err)
+	}
+	if err := prometheus.Register(constructTxWitnessTimeMetric); err != nil {
+		return nil, fmt.Errorf("prometheus.Register constructTxWitnessTimeMetric error: %v", err)
+	}
+	if err := prometheus.Register(getNextBlockWitnessTimeMetric); err != nil {
+		return nil, fmt.Errorf("prometheus.Register getNextBlockWitnessTimeMetric error: %v", err)
 	}
 
 	datasource := c.Postgres.DataSource
@@ -134,6 +171,7 @@ func (w *Witness) initState() error {
 
 func (w *Witness) GenerateBlockWitness() (err error) {
 	var latestWitnessHeight int64
+	start := time.Now()
 	latestWitnessHeight, err = w.blockWitnessModel.GetLatestBlockWitnessHeight()
 	if err != nil && err != types.DbErrNotFound {
 		return err
@@ -151,21 +189,27 @@ func (w *Witness) GenerateBlockWitness() (err error) {
 	if err != nil {
 		return err
 	}
+	getNextBlockWitnessTimeMetric.Set(float64(time.Since(start).Milliseconds()))
 
 	// scan each block
 	for _, block := range blocks {
 		logx.Infof("construct witness for block %d", block.BlockHeight)
 		// Step1: construct witness
+		start := time.Now()
 		blockWitness, err := w.constructBlockWitness(block, latestVerifiedBlockNr)
 		if err != nil {
 			return fmt.Errorf("failed to construct block witness, block:%d, err: %v", block.BlockHeight, err)
 		}
+		constructWitnessTimeMetric.Set(float64(time.Since(start).Milliseconds()))
 		// Step2: commit trees for witness
+		start = time.Now()
 		err = tree.CommitTrees(uint64(latestVerifiedBlockNr), w.accountTree, w.assetTrees, w.nftTree)
 		if err != nil {
 			return fmt.Errorf("unable to commit trees after txs is executed, block:%d, error: %v", block.BlockHeight, err)
 		}
+		commitTreesTimeMetric.Set(float64(time.Since(start).Milliseconds()))
 		// Step3: insert witness into database
+		start = time.Now()
 		err = w.blockWitnessModel.CreateBlockWitness(blockWitness)
 		l2WitnessHeightMetrics.Set(float64(blockWitness.Height))
 		if err != nil {
@@ -258,7 +302,9 @@ func (w *Witness) constructBlockWitness(block *block.Block, latestVerifiedBlockN
 		return nil, err
 	}
 	for idx, tx := range block.Txs {
+		start := time.Now()
 		txWitness, err := w.helper.ConstructTxWitness(tx, uint64(latestVerifiedBlockNr))
+		constructTxWitnessTimeMetric.Set(float64(time.Now().Sub(start).Milliseconds()))
 		if err != nil {
 			return nil, err
 		}
