@@ -102,6 +102,9 @@ func NewWitness(c config.Config) (*Witness, error) {
 	if err := prometheus.Register(getNextBlockWitnessTimeMetric); err != nil {
 		return nil, fmt.Errorf("prometheus.Register getNextBlockWitnessTimeMetric error: %v", err)
 	}
+	if err := prometheus.Register(l2WitnessHeightMetrics); err != nil {
+		return nil, fmt.Errorf("prometheus.Register l2WitnessHeightMetrics error: %v", err)
+	}
 
 	datasource := c.Postgres.DataSource
 	db, err := gorm.Open(postgres.Open(datasource))
