@@ -1,6 +1,7 @@
 package apiserver
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 )
 
 const GracefulShutdownTimeout = 5 * time.Second
+const SwaggerServicePort = 8866
 
 func Run(configFile string) error {
 	var c config.Config
@@ -59,11 +61,11 @@ func Run(configFile string) error {
 
 func startSwaggerServer() {
 
-	logx.Infof("swagger server is starting at port:%d", 8866)
+	logx.Infof("swagger server is starting at port:%d", SwaggerServicePort)
 	engine := gin.Default()
 	engine.GET("/swagger/*any", swagger.WrapHandler(swaggerFiles.Handler))
 
-	err := engine.Run(":8866")
+	err := engine.Run(fmt.Sprintf(":%d", SwaggerServicePort))
 	if err != nil {
 		logx.Errorf("swagger server fails to start! err:%s", err)
 	}
