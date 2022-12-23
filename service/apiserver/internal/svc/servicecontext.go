@@ -62,7 +62,9 @@ func NewServiceContext(c config.Config) *ServiceContext {
 
 	masterDataSource := c.Postgres.MasterDataSource
 	slaveDataSource := c.Postgres.SlaveDataSource
-	db, err := gorm.Open(postgres.Open(masterDataSource))
+	db, err := gorm.Open(postgres.Open(masterDataSource), &gorm.Config{
+		SkipDefaultTransaction: true,
+	})
 	if err != nil {
 		logx.Must(err)
 	}

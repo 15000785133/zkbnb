@@ -122,7 +122,8 @@ func NewBlockChain(config *ChainConfig, moduleName string) (*BlockChain, error) 
 	masterDataSource := config.Postgres.MasterDataSource
 	slaveDataSource := config.Postgres.SlaveDataSource
 	db, err := gorm.Open(postgres.Open(config.Postgres.MasterDataSource), &gorm.Config{
-		Logger: logger.Default.LogMode(config.Postgres.LogLevel),
+		Logger:                 logger.Default.LogMode(config.Postgres.LogLevel),
+		SkipDefaultTransaction: true,
 	})
 
 	db.Use(dbresolver.Register(dbresolver.Config{

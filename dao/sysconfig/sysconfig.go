@@ -78,6 +78,12 @@ func (m *defaultSysConfigModel) GetSysConfigByName(name string) (config *SysConf
 		return nil, types.DbErrNotFound
 	}
 	return config, nil
+
+	//err = m.DB.Transaction(func(tx *gorm.DB) (err error) {
+	//	tx.Table(m.table).Where("name = ?", name).Find(&config)
+	//	return nil
+	//})
+	//return nil, nil
 }
 
 func (m *defaultSysConfigModel) CreateSysConfigs(configs []*SysConfig) (rowsAffected int64, err error) {
