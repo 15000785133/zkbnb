@@ -1368,7 +1368,11 @@ func (c *Committer) finalSaveBlockDataFunc(blockStates *block.BlockStates) {
 		logx.Errorf("finalSaveBlockDataFunc failed:%s,blockHeight:%d", err.Error(), blockStates.Block.BlockHeight)
 		panic("finalSaveBlockDataFunc failed: " + err.Error())
 	}
-	c.bc.Statedb.UpdatePrunedBlockHeight(blockStates.Block.BlockHeight)
+	prunedBlockHeight := blockStates.Block.BlockHeight - 10000
+	if prunedBlockHeight <= 0 {
+		prunedBlockHeight = 0
+	}
+	c.bc.Statedb.UpdatePrunedBlockHeight(prunedBlockHeight)
 	l2BlockDbHeightMetric.Set(float64(blockStates.Block.BlockHeight))
 	finalSaveBlockDataMetrics.WithLabelValues("all").Set(float64(time.Since(start).Milliseconds()))
 }
