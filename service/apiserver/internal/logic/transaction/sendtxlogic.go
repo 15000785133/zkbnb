@@ -2,27 +2,34 @@ package transaction
 
 import (
 	"context"
-
-	"github.com/zeromicro/go-zero/core/logx"
-
 	"github.com/bnb-chain/zkbnb/core"
 	"github.com/bnb-chain/zkbnb/dao/tx"
+	"github.com/bnb-chain/zkbnb/service/apiserver/internal/signature"
 	"github.com/bnb-chain/zkbnb/service/apiserver/internal/svc"
 	"github.com/bnb-chain/zkbnb/service/apiserver/internal/types"
 	types2 "github.com/bnb-chain/zkbnb/types"
+	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/pkg/errors"
+	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type SendTxLogic struct {
 	logx.Logger
-	ctx    context.Context
-	svcCtx *svc.ServiceContext
+	ctx              context.Context
+	svcCtx           *svc.ServiceContext
+	l1AddressFetcher *signature.L1AddressFetcher
 }
 
 func NewSendTxLogic(ctx context.Context, svcCtx *svc.ServiceContext) *SendTxLogic {
+
+	l1AddressFetcher := signature.NewL1AddressFetcher(ctx, svcCtx)
 	return &SendTxLogic{
-		Logger: logx.WithContext(ctx),
-		ctx:    ctx,
-		svcCtx: svcCtx,
+		Logger:           logx.WithContext(ctx),
+		ctx:              ctx,
+		svcCtx:           svcCtx,
+		l1AddressFetcher: l1AddressFetcher,
 	}
 }
 
@@ -35,6 +42,11 @@ func (s *SendTxLogic) SendTx(req *types.ReqSendTx) (resp *types.TxHash, err erro
 
 	if s.svcCtx.Config.TxPool.MaxPendingTxCount > 0 && pendingTxCount >= int64(s.svcCtx.Config.TxPool.MaxPendingTxCount) {
 		return nil, types2.AppErrTooManyTxs
+	}
+
+	err = s.verifySignature(req.TxType, req.TxInfo, req.TxSignature)
+	if err != nil {
+		return nil, err
 	}
 
 	resp = &types.TxHash{}
@@ -72,4 +84,28 @@ func (s *SendTxLogic) SendTx(req *types.ReqSendTx) (resp *types.TxHash, err erro
 
 	resp.TxHash = newTx.TxHash
 	return resp, nil
+}
+
+func (s *SendTxLogic) verifySignature(TxType uint32, TxInfo, Signature string) error {
+	signBody, err := signature.GenerateSignatureBody(TxType, TxInfo)
+	if err != nil {
+		return err
+	}
+	content := accounts.TextHash([]byte(signBody))
+	sigPublicKey, err := crypto.SigToPub(content, []byte(Signature))
+	if err != nil {
+		return err
+	}
+
+	publicAddress := crypto.PubkeyToAddress(*sigPublicKey)
+	originAddressStr, err := s.l1AddressFetcher.GetL1AddressByTx(TxType, TxInfo)
+	if err != nil {
+		return err
+	}
+
+	originAddress := common.HexToAddress(originAddressStr)
+	if publicAddress != originAddress {
+		return errors.New("Tx Signature Error")
+	}
+	return nil
 }

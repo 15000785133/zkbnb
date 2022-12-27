@@ -7,7 +7,7 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 
 	"github.com/bnb-chain/zkbnb-crypto/wasm/txtypes"
-	"github.com/bnb-chain/zkbnb/core/executor"
+	txExecutor "github.com/bnb-chain/zkbnb/core/executor"
 	"github.com/bnb-chain/zkbnb/dao/tx"
 	"github.com/bnb-chain/zkbnb/types"
 )
@@ -30,7 +30,7 @@ func (p *CommitProcessor) Process(tx *tx.Tx) error {
 	p.bc.setCurrentBlockTimeStamp()
 	defer p.bc.resetCurrentBlockTimeStamp()
 
-	executor, err := executor.NewTxExecutor(p.bc, tx)
+	executor, err := txExecutor.NewTxExecutor(p.bc, tx)
 	if err != nil {
 		return fmt.Errorf("new tx executor failed")
 	}
@@ -80,11 +80,10 @@ func NewAPIProcessor(bc *BlockChain) Processor {
 }
 
 func (p *APIProcessor) Process(tx *tx.Tx) error {
-	executor, err := executor.NewTxExecutor(p.bc, tx)
+	executor, err := txExecutor.NewTxExecutor(p.bc, tx)
 	if err != nil {
 		return fmt.Errorf("new tx executor failed")
 	}
-
 	err = executor.Prepare()
 	if err != nil {
 		logx.Error("fail to prepare:", err)
@@ -94,7 +93,6 @@ func (p *APIProcessor) Process(tx *tx.Tx) error {
 	if err != nil {
 		return mappingVerifyInputsErrors(err)
 	}
-
 	return nil
 }
 
