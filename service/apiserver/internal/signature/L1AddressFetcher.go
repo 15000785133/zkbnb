@@ -60,12 +60,7 @@ func (f *L1AddressFetcher) fetcherForWithdrawal(txInfo string) (string, error) {
 		logx.Errorf("parse withdrawal tx failed: %s", err.Error())
 		return "", errors.New("invalid tx info")
 	}
-
-	account, err := f.svcCtx.AccountModel.GetAccountByIndex(transaction.FromAccountIndex)
-	if err != nil {
-		return "", err
-	}
-	return account.L1Address, nil
+	return f.fetchL1AddressByAccountIndex(transaction.FromAccountIndex)
 }
 
 func (f *L1AddressFetcher) fetcherForTransfer(txInfo string) (string, error) {
@@ -74,11 +69,7 @@ func (f *L1AddressFetcher) fetcherForTransfer(txInfo string) (string, error) {
 		logx.Errorf("parse transfer tx failed: %s", err.Error())
 		return "", errors.New("invalid tx info")
 	}
-	account, err := f.svcCtx.AccountModel.GetAccountByIndex(transaction.FromAccountIndex)
-	if err != nil {
-		return "", err
-	}
-	return account.L1Address, nil
+	return f.fetchL1AddressByAccountIndex(transaction.FromAccountIndex)
 }
 
 func (f *L1AddressFetcher) fetcherForCreateCollection(txInfo string) (string, error) {
@@ -87,11 +78,7 @@ func (f *L1AddressFetcher) fetcherForCreateCollection(txInfo string) (string, er
 		logx.Errorf("parse create collection tx failed: %s", err.Error())
 		return "", errors.New("invalid tx info")
 	}
-	account, err := f.svcCtx.AccountModel.GetAccountByIndex(transaction.AccountIndex)
-	if err != nil {
-		return "", err
-	}
-	return account.L1Address, nil
+	return f.fetchL1AddressByAccountIndex(transaction.AccountIndex)
 }
 
 func (f *L1AddressFetcher) fetcherForMintNft(txInfo string) (string, error) {
@@ -100,11 +87,7 @@ func (f *L1AddressFetcher) fetcherForMintNft(txInfo string) (string, error) {
 		logx.Errorf("parse mint nft tx failed: %s", err.Error())
 		return "", errors.New("invalid tx info")
 	}
-	account, err := f.svcCtx.AccountModel.GetAccountByIndex(transaction.CreatorAccountIndex)
-	if err != nil {
-		return "", err
-	}
-	return account.L1Address, nil
+	return f.fetchL1AddressByAccountIndex(transaction.CreatorAccountIndex)
 }
 
 func (f *L1AddressFetcher) fetcherForTransferNft(txInfo string) (string, error) {
@@ -113,11 +96,7 @@ func (f *L1AddressFetcher) fetcherForTransferNft(txInfo string) (string, error) 
 		logx.Errorf("parse cancel offer tx failed: %s", err.Error())
 		return "", errors.New("invalid tx info")
 	}
-	account, err := f.svcCtx.AccountModel.GetAccountByIndex(transaction.FromAccountIndex)
-	if err != nil {
-		return "", err
-	}
-	return account.L1Address, nil
+	return f.fetchL1AddressByAccountIndex(transaction.FromAccountIndex)
 }
 
 func (f *L1AddressFetcher) fetcherForWithdrawalNft(txInfo string) (string, error) {
@@ -126,11 +105,7 @@ func (f *L1AddressFetcher) fetcherForWithdrawalNft(txInfo string) (string, error
 		logx.Errorf("parse withdrawal nft tx failed: %s", err.Error())
 		return "", errors.New("invalid tx info")
 	}
-	account, err := f.svcCtx.AccountModel.GetAccountByIndex(transaction.AccountIndex)
-	if err != nil {
-		return "", err
-	}
-	return account.L1Address, nil
+	return f.fetchL1AddressByAccountIndex(transaction.AccountIndex)
 }
 
 func (f *L1AddressFetcher) fetcherForCancelOffer(txInfo string) (string, error) {
@@ -139,11 +114,7 @@ func (f *L1AddressFetcher) fetcherForCancelOffer(txInfo string) (string, error) 
 		logx.Errorf("parse cancel offer tx failed: %s", err.Error())
 		return "", errors.New("invalid tx info")
 	}
-	account, err := f.svcCtx.AccountModel.GetAccountByIndex(transaction.AccountIndex)
-	if err != nil {
-		return "", err
-	}
-	return account.L1Address, nil
+	return f.fetchL1AddressByAccountIndex(transaction.AccountIndex)
 }
 
 func (f *L1AddressFetcher) fetcherForAtomicMatch(txInfo string) (string, error) {
@@ -152,7 +123,13 @@ func (f *L1AddressFetcher) fetcherForAtomicMatch(txInfo string) (string, error) 
 		logx.Errorf("parse atomic match tx failed: %s", err.Error())
 		return "", errors.New("invalid tx info")
 	}
-	account, err := f.svcCtx.AccountModel.GetAccountByIndex(transaction.AccountIndex)
+	return f.fetchL1AddressByAccountIndex(transaction.AccountIndex)
+}
+
+func (f *L1AddressFetcher) fetchL1AddressByAccountIndex(accountIndex int64) (string, error) {
+	account, err := f.svcCtx.MemCache.GetAccountWithFallback(accountIndex, func() (interface{}, error) {
+		return f.svcCtx.AccountModel.GetAccountByIndex(accountIndex)
+	})
 	if err != nil {
 		return "", err
 	}
