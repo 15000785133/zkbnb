@@ -8,6 +8,7 @@ import (
 	"github.com/bnb-chain/zkbnb/service/apiserver/internal/svc"
 	"github.com/bnb-chain/zkbnb/service/apiserver/internal/types"
 	types2 "github.com/bnb-chain/zkbnb/types"
+	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -92,21 +93,26 @@ func (s *SendTxLogic) verifySignature(TxType uint32, TxInfo, Signature string) e
 	if err != nil {
 		return err
 	}
-	contentHash := crypto.Keccak256Hash([]byte(signatureBody))
+	message := accounts.TextHash([]byte(signatureBody))
+
+	//Append 0x prefix to restore the signature as the original one
+	Signature = "0x" + Signature
 
 	//Decode from signature string to get the signature byte array
-	signatureBytes, err := hexutil.Decode(Signature)
+	signatureContent, err := hexutil.Decode(Signature)
+	if err != nil {
+		return err
+	}
+	signatureContent[64] -= 27 // Transform yellow paper V from 27/28 to 0/1
+
+	//Calculate the public key from the signature and source string
+	signaturePublicKey, err := crypto.SigToPub(message, signatureContent)
 	if err != nil {
 		return err
 	}
 
-	//Calculate the public key from the signature and source string
-	sigPublicKey, err := crypto.SigToPub(contentHash.Bytes(), signatureBytes)
-	if err != nil {
-		return err
-	}
 	//Calculate the address from the public key
-	publicAddress := crypto.PubkeyToAddress(*sigPublicKey)
+	publicAddress := crypto.PubkeyToAddress(*signaturePublicKey)
 
 	//Query the origin address from the database
 	originAddressStr, err := s.l1AddressFetcher.GetL1AddressByTx(TxType, TxInfo)
