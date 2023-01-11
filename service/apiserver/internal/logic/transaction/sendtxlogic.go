@@ -88,15 +88,18 @@ func (s *SendTxLogic) SendTx(req *types.ReqSendTx) (resp *types.TxHash, err erro
 }
 
 func (s *SendTxLogic) verifySignature(TxType uint32, TxInfo, Signature string) error {
+
+	// For compatibility consideration, if signature string is empty, directly ignore the validation
+	if len(Signature) == 0 {
+		return nil
+	}
+
 	//Generate the signature body data from the transaction type and transaction info
 	signatureBody, err := signature.GenerateSignatureBody(TxType, TxInfo)
 	if err != nil {
 		return err
 	}
 	message := accounts.TextHash([]byte(signatureBody))
-
-	//Append 0x prefix to restore the signature as the original one
-	Signature = "0x" + Signature
 
 	//Decode from signature string to get the signature byte array
 	signatureContent, err := hexutil.Decode(Signature)
