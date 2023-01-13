@@ -35,6 +35,8 @@ type (
 		GetTxsTotalCount(options ...GetTxOptionFunc) (count int64, err error)
 		GetTxByTxHash(hash string) (txs *Tx, err error)
 		GetTxsByStatus(status int) (txs []*Tx, err error)
+		GetTxsByAccountIndex(accountIndex int64, limit int64, offset int64, options ...GetTxOptionFunc) (txs []*Tx, err error)
+		GetTxsCountByAccountIndex(accountIndex int64, options ...GetTxOptionFunc) (count int64, err error)
 		CreateTxs(txs []*Tx) error
 		GetPendingTxsByAccountIndex(accountIndex int64, options ...GetTxOptionFunc) (txs []*Tx, err error)
 		GetMaxNonceByAccountIndex(accountIndex int64) (nonce int64, err error)
@@ -147,6 +149,46 @@ func (m *defaultTxPoolModel) GetTxByTxHash(hash string) (tx *Tx, err error) {
 		return nil, types.DbErrNotFound
 	}
 	return tx, nil
+}
+
+func (m *defaultTxPoolModel) GetTxsByAccountIndex(accountIndex int64, limit int64, offset int64, options ...GetTxOptionFunc) (txs []*Tx, err error) {
+	opt := &getTxOption{}
+	for _, f := range options {
+		f(opt)
+	}
+
+	dbTx := m.DB.Table(m.table).Where("account_index = ?", accountIndex)
+	if len(opt.Types) > 0 {
+		dbTx = dbTx.Where("tx_type IN ?", opt.Types)
+	}
+
+	dbTx = dbTx.Limit(int(limit)).Offset(int(offset)).Order("created_at desc").Find(&txs)
+	if dbTx.Error != nil {
+		return nil, types.DbErrSqlOperation
+	} else if dbTx.RowsAffected == 0 {
+		return nil, types.DbErrNotFound
+	}
+	return txs, nil
+}
+
+func (m *defaultTxPoolModel) GetTxsCountByAccountIndex(accountIndex int64, options ...GetTxOptionFunc) (count int64, err error) {
+	opt := &getTxOption{}
+	for _, f := range options {
+		f(opt)
+	}
+
+	dbTx := m.DB.Table(m.table).Where("account_index = ?", accountIndex)
+	if len(opt.Types) > 0 {
+		dbTx = dbTx.Where("tx_type IN ?", opt.Types)
+	}
+
+	dbTx = dbTx.Count(&count)
+	if dbTx.Error != nil {
+		return 0, types.DbErrSqlOperation
+	} else if dbTx.RowsAffected == 0 {
+		return 0, nil
+	}
+	return count, nil
 }
 
 func (m *defaultTxPoolModel) CreateTxs(txs []*Tx) error {

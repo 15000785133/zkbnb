@@ -34,25 +34,7 @@ func NewGetAccountTxsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Get
 }
 
 func (l *GetAccountTxsLogic) GetAccountTxs(req *types.ReqGetAccountTxs) (resp *types.Txs, err error) {
-	resp = &types.Txs{
-		Txs: make([]*types.Tx, 0, req.Limit),
-	}
-
-	accountIndex := int64(0)
-	switch req.By {
-	case queryByAccountIndex:
-		accountIndex, err = strconv.ParseInt(req.Value, 10, 64)
-		if err != nil || accountIndex < 0 {
-			return nil, types2.AppErrInvalidAccountIndex
-		}
-	case queryByAccountName:
-		accountIndex, err = l.svcCtx.MemCache.GetAccountIndexByName(req.Value)
-	case queryByAccountPk:
-		accountIndex, err = l.svcCtx.MemCache.GetAccountIndexByPk(req.Value)
-	default:
-		return nil, types2.AppErrInvalidParam.RefineError("param by should be account_index|account_name|account_pk")
-	}
-
+	accountIndex, err := l.fetchAccountIndexFromReq(req)
 	if err != nil {
 		if err == types2.DbErrNotFound {
 			return resp, nil
@@ -60,7 +42,7 @@ func (l *GetAccountTxsLogic) GetAccountTxs(req *types.ReqGetAccountTxs) (resp *t
 		return nil, types2.AppErrInternal
 	}
 
-	options := []tx.GetTxOptionFunc{}
+	var options []tx.GetTxOptionFunc
 	if len(req.Types) > 0 {
 		options = append(options, tx.GetTxWithTypes(req.Types))
 	}
@@ -70,7 +52,6 @@ func (l *GetAccountTxsLogic) GetAccountTxs(req *types.ReqGetAccountTxs) (resp *t
 		return nil, types2.AppErrInternal
 	}
 
-	resp.Total = uint32(total)
 	if total == 0 || total <= int64(req.Offset) {
 		return resp, nil
 	}
@@ -80,7 +61,33 @@ func (l *GetAccountTxsLogic) GetAccountTxs(req *types.ReqGetAccountTxs) (resp *t
 		return nil, types2.AppErrInternal
 	}
 
-	for _, dbTx := range txs {
+	resp = l.convertTxsList(uint32(total), txs)
+	return resp, nil
+}
+
+func (l *GetAccountTxsLogic) fetchAccountIndexFromReq(req *types.ReqGetAccountTxs) (int64, error) {
+	switch req.By {
+	case queryByAccountIndex:
+		accountIndex, err := strconv.ParseInt(req.Value, 10, 64)
+		if err != nil || accountIndex < 0 {
+			return accountIndex, types2.AppErrInvalidAccountIndex
+		}
+	case queryByAccountName:
+		accountIndex, err := l.svcCtx.MemCache.GetAccountIndexByName(req.Value)
+		return accountIndex, err
+	case queryByAccountPk:
+		accountIndex, err := l.svcCtx.MemCache.GetAccountIndexByPk(req.Value)
+		return accountIndex, err
+	}
+	return 0, types2.AppErrInvalidParam.RefineError("param by should be account_index|account_name|account_pk")
+}
+
+func (l *GetAccountTxsLogic) convertTxsList(totalCount uint32, txList []*tx.Tx) *types.Txs {
+
+	resp := &types.Txs{
+		Txs: make([]*types.Tx, 0, totalCount),
+	}
+	for _, dbTx := range txList {
 		tx := utils.ConvertTx(dbTx)
 		tx.AccountName, _ = l.svcCtx.MemCache.GetAccountNameByIndex(tx.AccountIndex)
 		tx.AssetName, _ = l.svcCtx.MemCache.GetAssetNameById(tx.AssetId)
@@ -89,5 +96,5 @@ func (l *GetAccountTxsLogic) GetAccountTxs(req *types.ReqGetAccountTxs) (resp *t
 		}
 		resp.Txs = append(resp.Txs, tx)
 	}
-	return resp, nil
+	return resp
 }
