@@ -64,7 +64,7 @@ func (l *GetMergedAccountTxsLogic) GetMergedAccountTxs(req *types.ReqGetAccountT
 		if err != nil {
 			return nil, types2.AppErrInternal
 		}
-		l.appendTxsList(txsList, txs)
+		txsList = l.appendTxsList(txsList, txs)
 	} else {
 		poolTxLimit := poolTxCount - int64(req.Offset) - replicateTxCount
 		if poolTxLimit > int64(req.Limit) {
@@ -72,27 +72,28 @@ func (l *GetMergedAccountTxsLogic) GetMergedAccountTxs(req *types.ReqGetAccountT
 			if err != nil {
 				return nil, types2.AppErrInternal
 			}
-			l.appendTxsList(txsList, poolTxs)
+			txsList = l.appendTxsList(txsList, poolTxs)
 		} else {
 			poolTxs, err := l.svcCtx.TxPoolModel.GetTxsByAccountIndex(accountIndex, poolTxLimit, int64(req.Offset), options...)
-			if err != nil {
+			if err != nil && err != types2.DbErrNotFound {
 				return nil, types2.AppErrInternal
 			}
-			l.appendTxsList(txsList, poolTxs)
+			txsList = l.appendTxsList(txsList, poolTxs)
 			txLimit := int64(req.Limit) - poolTxLimit
 			if txLimit > 0 {
 				txs, err := l.svcCtx.TxModel.GetTxsByAccountIndex(accountIndex, int64(req.Limit), 0, options...)
-				if err != nil {
+				if err != nil && err != types2.DbErrNotFound {
 					return nil, types2.AppErrInternal
 				}
-				l.appendTxsList(txsList, txs)
+				txsList = l.appendTxsList(txsList, txs)
 			}
 		}
 	}
 
-	resp.Txs = txsList
-	resp.Total = uint32(len(txsList))
-
+	resp = &types.Txs{
+		Txs:   txsList,
+		Total: uint32(len(txsList)),
+	}
 	return resp, nil
 }
 
@@ -103,6 +104,7 @@ func (l *GetMergedAccountTxsLogic) fetchAccountIndexFromReq(req *types.ReqGetAcc
 		if err != nil || accountIndex < 0 {
 			return accountIndex, types2.AppErrInvalidAccountIndex
 		}
+		return accountIndex, err
 	case queryByAccountName:
 		accountIndex, err := l.svcCtx.MemCache.GetAccountIndexByName(req.Value)
 		return accountIndex, err
@@ -113,7 +115,7 @@ func (l *GetMergedAccountTxsLogic) fetchAccountIndexFromReq(req *types.ReqGetAcc
 	return 0, types2.AppErrInvalidParam.RefineError("param by should be account_index|account_name|account_pk")
 }
 
-func (l *GetMergedAccountTxsLogic) appendTxsList(txsResultList []*types.Tx, txList []*tx.Tx) {
+func (l *GetMergedAccountTxsLogic) appendTxsList(txsResultList []*types.Tx, txList []*tx.Tx) []*types.Tx {
 
 	for _, dbTx := range txList {
 		tx := utils.ConvertTx(dbTx)
@@ -124,4 +126,5 @@ func (l *GetMergedAccountTxsLogic) appendTxsList(txsResultList []*types.Tx, txLi
 		}
 		txsResultList = append(txsResultList, tx)
 	}
+	return txsResultList
 }

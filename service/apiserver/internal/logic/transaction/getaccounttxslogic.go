@@ -72,6 +72,7 @@ func (l *GetAccountTxsLogic) fetchAccountIndexFromReq(req *types.ReqGetAccountTx
 		if err != nil || accountIndex < 0 {
 			return accountIndex, types2.AppErrInvalidAccountIndex
 		}
+		return accountIndex, err
 	case queryByAccountName:
 		accountIndex, err := l.svcCtx.MemCache.GetAccountIndexByName(req.Value)
 		return accountIndex, err
