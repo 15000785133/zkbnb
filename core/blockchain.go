@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/bnb-chain/zkbnb/common/metrics"
+	"github.com/bnb-chain/zkbnb/service/committer/committer"
 	"github.com/dgraph-io/ristretto"
 	"gorm.io/plugin/dbresolver"
 	"math/big"
@@ -20,6 +21,8 @@ import (
 	"gorm.io/gorm"
 
 	bsmt "github.com/bnb-chain/zkbnb-smt"
+	common2 "github.com/bnb-chain/zkbnb/common"
+
 	"github.com/bnb-chain/zkbnb/common/chain"
 	"github.com/bnb-chain/zkbnb/core/statedb"
 	sdb "github.com/bnb-chain/zkbnb/core/statedb"
@@ -69,7 +72,7 @@ type BlockChain struct {
 	processor        Processor
 }
 
-func NewBlockChain(config *ChainConfig, moduleName string) (*BlockChain, error) {
+func NewBlockChain(config *ChainConfig, configAll *committer.Config, moduleName string) (*BlockChain, error) {
 	masterDataSource := config.Postgres.MasterDataSource
 	slaveDataSource := config.Postgres.SlaveDataSource
 	db, err := gorm.Open(postgres.Open(config.Postgres.MasterDataSource), &gorm.Config{
@@ -114,15 +117,18 @@ func NewBlockChain(config *ChainConfig, moduleName string) (*BlockChain, error) 
 	}
 
 	accountIndexList, nftIndexList, heights := preRollBackFunc(bc, redisCache)
+	common2.Test(configAll.BlockConfig.FeatureTest, configAll.BlockConfig.FunctionNameTest, "NewStateDBBefore")
 
 	bc.Statedb, err = sdb.NewStateDB(treeCtx, bc.ChainDB, redisCache, &config.CacheConfig, config.TreeDB.AssetTreeCacheSize, bc.currentBlock.StateRoot, accountIndexList, curHeight)
 	if err != nil {
 		return nil, err
 	}
+	common2.Test(configAll.BlockConfig.FeatureTest, configAll.BlockConfig.FunctionNameTest, "NewStateDBAfter")
+
 	bc.rollbackBlockMap = make(map[int64]*block.Block, 0)
 
 	if len(heights) != 0 {
-		err = rollbackFunc(bc, accountIndexList, nftIndexList, heights, curHeight)
+		err = rollbackFunc(configAll, bc, accountIndexList, nftIndexList, heights, curHeight)
 		rollBackBlocks, err := bc.BlockModel.GetBlockByStatus([]int{block.StatusProposing})
 		if err != nil && err != types.DbErrNotFound {
 			logx.Severe("get blocks by status (StatusProposing,StatusPacked) failed: ", err)
@@ -136,6 +142,7 @@ func NewBlockChain(config *ChainConfig, moduleName string) (*BlockChain, error) 
 	}
 
 	verifyRollbackFunc(bc, curHeight)
+	common2.Test(configAll.BlockConfig.FeatureTest, configAll.BlockConfig.FunctionNameTest, "verifyRollbackFunc")
 
 	bc.Statedb.PreviousStateRootImmutable = bc.currentBlock.StateRoot
 
@@ -269,7 +276,7 @@ func preRollBackFunc(bc *BlockChain, redisCache dbcache.Cache) ([]int64, []int64
 	return accountIndexList, nftIndexList, heights
 }
 
-func rollbackFunc(bc *BlockChain, accountIndexList []int64, nftIndexList []int64, heights []int64, curHeight int64) (err error) {
+func rollbackFunc(configAll *committer.Config, bc *BlockChain, accountIndexList []int64, nftIndexList []int64, heights []int64, curHeight int64) (err error) {
 	accountIndexSlice := make([]int64, 0)
 	accountHistories := make([]*account.AccountHistory, 0)
 	accountIndexLen := len(accountIndexList)
@@ -488,6 +495,8 @@ func rollbackFunc(bc *BlockChain, accountIndexList []int64, nftIndexList []int64
 			logx.Severe("create rollback failed: ", err)
 			panic("create rollback failed: " + err.Error())
 		}
+		common2.Test(configAll.BlockConfig.FeatureTest, configAll.BlockConfig.FunctionNameTest, "rollbackFunc")
+
 		return nil
 	})
 	return nil
