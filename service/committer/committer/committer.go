@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/bnb-chain/zkbnb-crypto/ffmath"
+	"github.com/bnb-chain/zkbnb/common"
 	"github.com/bnb-chain/zkbnb/common/gopool"
 	"github.com/bnb-chain/zkbnb/common/metrics"
 	"github.com/bnb-chain/zkbnb/core/statedb"
@@ -34,8 +35,10 @@ type Config struct {
 
 	BlockConfig struct {
 		OptionalBlockSizes    []int
-		SaveBlockDataPoolSize int  `json:",optional"`
-		RollbackOnly          bool `json:",optional"`
+		SaveBlockDataPoolSize int    `json:",optional"`
+		RollbackOnly          bool   `json:",optional"`
+		FunctionNameTest      string `json:",optional"`
+		FeatureTest           string `json:",optional"`
 	}
 	LogConf logx.LogConf
 }
@@ -220,11 +223,13 @@ func (c *Committer) pullPoolTxs() {
 			}
 			executedTxMaxId = poolTx.ID
 			c.executeTxWorker.Enqueue(poolTx)
+			common.Test(c.config.BlockConfig.FeatureTest, c.config.BlockConfig.FunctionNameTest, "pullPoolTxs")
 		}
 	}
 }
 
 func (c *Committer) getPoolTxsFromQueue() []*tx.Tx {
+	common.Test(c.config.BlockConfig.FeatureTest, c.config.BlockConfig.FunctionNameTest, "getPoolTxsFromQueue")
 	pendingUpdatePoolTxs := make([]*tx.Tx, 0, 300)
 	for {
 		select {
@@ -358,6 +363,8 @@ func (c *Committer) executeTxFunc() {
 			start := time.Now()
 			logx.Infof("commit new block, height=%d,blockSize=%d", curBlock.BlockHeight, curBlock.BlockSize)
 			pendingUpdatePoolTxs = make([]*tx.Tx, 0, c.maxTxsPerBlock)
+			common.Test(c.config.BlockConfig.FeatureTest, c.config.BlockConfig.FunctionNameTest, "executeTxFunc")
+
 			stateDataCopy := c.buildStateDataCopy(curBlock)
 			c.preSaveBlockDataWorker.Enqueue(stateDataCopy)
 			metrics.AccountAssetTreeQueueMetric.Set(float64(c.updateAssetTreeWorker.GetQueueSize()))
@@ -514,6 +521,7 @@ func (c *Committer) buildStateDataCopy(curBlock *block.Block) *statedb.StateData
 				logx.Errorf("PreSaveBlockDataInTransact failed:%s,blockHeight:%s", err, curBlock.BlockHeight)
 				panic("PreSaveBlockDataInTransact failed: " + err.Error())
 			}
+			common.Test(c.config.BlockConfig.FeatureTest, c.config.BlockConfig.FunctionNameTest, "buildStateDataCopy")
 			return nil
 		})
 		if err != nil {
@@ -574,6 +582,7 @@ func (c *Committer) addUpdatePoolTxQueue(pendingUpdatePoolTxs []*tx.Tx, pendingD
 }
 
 func (c *Committer) updatePoolTxFunc(updatePoolTxMap *UpdatePoolTx) {
+	common.Test(c.config.BlockConfig.FeatureTest, c.config.BlockConfig.FunctionNameTest, "updatePoolTxFunc")
 	start := time.Now()
 	if updatePoolTxMap.PendingUpdatePoolTxs != nil {
 		length := len(updatePoolTxMap.PendingUpdatePoolTxs)
@@ -617,6 +626,7 @@ func (c *Committer) updatePoolTxFunc(updatePoolTxMap *UpdatePoolTx) {
 		}
 	}
 	metrics.UpdatePoolTxsMetrics.Set(float64(time.Since(start).Milliseconds()))
+
 }
 
 func (c *Committer) addSyncAccountToRedisQueue(originPendingAccountMap map[int64]*types.AccountInfo, originPendingNftMap map[int64]*nft.L2Nft) {
@@ -637,6 +647,7 @@ func (c *Committer) addSyncAccountToRedisQueue(originPendingAccountMap map[int64
 }
 
 func (c *Committer) syncAccountToRedisFunc(pendingMap *PendingMap) {
+	common.Test(c.config.BlockConfig.FeatureTest, c.config.BlockConfig.FunctionNameTest, "syncAccountToRedisFunc")
 	start := time.Now()
 	c.bc.Statedb.SyncPendingAccountToRedis(pendingMap.PendingAccountMap)
 	c.bc.Statedb.SyncPendingNftToRedis(pendingMap.PendingNftMap)
@@ -644,6 +655,7 @@ func (c *Committer) syncAccountToRedisFunc(pendingMap *PendingMap) {
 }
 
 func (c *Committer) preSaveBlockDataFunc(stateDataCopy *statedb.StateDataCopy) {
+	common.Test(c.config.BlockConfig.FeatureTest, c.config.BlockConfig.FunctionNameTest, "preSaveBlockDataFunc")
 	start := time.Now()
 	logx.Infof("preSaveBlockDataFunc start, blockHeight:%d", stateDataCopy.CurrentBlock.BlockHeight)
 	accountIndexes := make([]int64, 0, len(stateDataCopy.StateCache.PendingAccountMap))
@@ -684,9 +696,11 @@ func (c *Committer) preSaveBlockDataFunc(stateDataCopy *statedb.StateDataCopy) {
 
 	metrics.PreSaveBlockDataMetrics.WithLabelValues("all").Set(float64(time.Since(start).Milliseconds()))
 	c.updateAssetTreeWorker.Enqueue(stateDataCopy)
+
 }
 
 func (c *Committer) updateAssetTreeFunc(stateDataCopy *statedb.StateDataCopy) {
+	common.Test(c.config.BlockConfig.FeatureTest, c.config.BlockConfig.FunctionNameTest, "updateAssetTreeFunc")
 	start := time.Now()
 	metrics.UpdateAssetTreeTxMetrics.Add(float64(len(stateDataCopy.StateCache.Txs)))
 	logx.Infof("updateAssetTreeFunc blockHeight:%s,blockId:%s", stateDataCopy.CurrentBlock.BlockHeight, stateDataCopy.CurrentBlock.ID)
@@ -702,6 +716,7 @@ func (c *Committer) updateAssetTreeFunc(stateDataCopy *statedb.StateDataCopy) {
 }
 
 func (c *Committer) updateAccountAndNftTreeFunc(stateDataCopy *statedb.StateDataCopy) {
+	common.Test(c.config.BlockConfig.FeatureTest, c.config.BlockConfig.FunctionNameTest, "updateAccountAndNftTreeFunc")
 	start := time.Now()
 	metrics.UpdateAccountAndNftTreeTxMetrics.Add(float64(len(stateDataCopy.StateCache.Txs)))
 	logx.Infof("updateAccountAndNftTreeFunc blockHeight:%s,blockId:%s", stateDataCopy.CurrentBlock.BlockHeight, stateDataCopy.CurrentBlock.ID)
@@ -721,6 +736,7 @@ func (c *Committer) updateAccountAndNftTreeFunc(stateDataCopy *statedb.StateData
 	metrics.NftTreeLatestVersionMetric.Set(float64(c.bc.StateDB().NftTree.LatestVersion()))
 	metrics.NftTreeRecentVersionMetric.Set(float64(c.bc.StateDB().NftTree.RecentVersion()))
 	metrics.UpdateAccountTreeAndNftTreeMetrics.Set(float64(time.Since(start).Milliseconds()))
+
 }
 
 func (c *Committer) saveBlockDataFunc(blockStates *block.BlockStates) {
@@ -751,6 +767,7 @@ func (c *Committer) saveBlockDataFunc(blockStates *block.BlockStates) {
 		return c.pool.Submit(func() {
 			start := time.Now()
 			if len(updateNftIndexOrCollectionIdList) > 0 {
+				common.Test(c.config.BlockConfig.FeatureTest, c.config.BlockConfig.FunctionNameTest, "BatchUpdateNftIndexOrCollectionId")
 				err := c.bc.TxPoolModel.BatchUpdateNftIndexOrCollectionId(updateNftIndexOrCollectionIdList)
 				if err != nil {
 					logx.Error("update tx pool failed:", err)
@@ -758,7 +775,7 @@ func (c *Committer) saveBlockDataFunc(blockStates *block.BlockStates) {
 					return
 				}
 			}
-
+			common.Test(c.config.BlockConfig.FeatureTest, c.config.BlockConfig.FunctionNameTest, "DeleteTxsBatch")
 			err = c.bc.DB().TxPoolModel.DeleteTxsBatch(poolTxIds, tx.StatusExecuted, blockHeight)
 			metrics.DeletePoolTxMetrics.Set(float64(time.Since(start).Milliseconds()))
 			if err != nil {
@@ -794,6 +811,7 @@ func (c *Committer) saveBlockDataFunc(blockStates *block.BlockStates) {
 			totalTask++
 			err := func(accounts []*account.Account) error {
 				return c.pool.Submit(func() {
+					common.Test(c.config.BlockConfig.FeatureTest, c.config.BlockConfig.FunctionNameTest, "BatchInsertOrUpdateInTransact")
 					start := time.Now()
 					err = c.bc.DB().DB.Transaction(func(dbTx *gorm.DB) error {
 						return c.bc.DB().AccountModel.BatchInsertOrUpdateInTransact(dbTx, accounts)
@@ -830,6 +848,7 @@ func (c *Committer) saveBlockDataFunc(blockStates *block.BlockStates) {
 			totalTask++
 			err := func(accountHistories []*account.AccountHistory) error {
 				return c.pool.Submit(func() {
+					common.Test(c.config.BlockConfig.FeatureTest, c.config.BlockConfig.FunctionNameTest, "CreateAccountHistoriesInTransact")
 					start := time.Now()
 					err = c.bc.DB().DB.Transaction(func(dbTx *gorm.DB) error {
 						return c.bc.DB().AccountHistoryModel.CreateAccountHistoriesInTransact(dbTx, accountHistories)
@@ -870,6 +889,7 @@ func (c *Committer) saveBlockDataFunc(blockStates *block.BlockStates) {
 			totalTask++
 			err := func(nfts []*nft.L2Nft) error {
 				return c.pool.Submit(func() {
+					common.Test(c.config.BlockConfig.FeatureTest, c.config.BlockConfig.FunctionNameTest, "BatchInsertOrUpdateInTransact")
 					start := time.Now()
 					err = c.bc.DB().DB.Transaction(func(dbTx *gorm.DB) error {
 						return c.bc.DB().L2NftModel.BatchInsertOrUpdateInTransact(dbTx, nfts)
@@ -906,6 +926,7 @@ func (c *Committer) saveBlockDataFunc(blockStates *block.BlockStates) {
 			totalTask++
 			err := func(nftHistories []*nft.L2NftHistory) error {
 				return c.pool.Submit(func() {
+					common.Test(c.config.BlockConfig.FeatureTest, c.config.BlockConfig.FunctionNameTest, "CreateNftHistoriesInTransact")
 					start := time.Now()
 					err = c.bc.DB().DB.Transaction(func(dbTx *gorm.DB) error {
 						return c.bc.DB().L2NftHistoryModel.CreateNftHistoriesInTransact(dbTx, nftHistories)
@@ -943,6 +964,7 @@ func (c *Committer) saveBlockDataFunc(blockStates *block.BlockStates) {
 			err := func(txs []*tx.Tx) error {
 				return c.pool.Submit(func() {
 					start := time.Now()
+					common.Test(c.config.BlockConfig.FeatureTest, c.config.BlockConfig.FunctionNameTest, "CreateTxs")
 					err = c.bc.DB().TxModel.CreateTxs(txs)
 					metrics.AddTxsMetrics.Set(float64(time.Since(start).Milliseconds()))
 					if err != nil {
@@ -980,6 +1002,7 @@ func (c *Committer) saveBlockDataFunc(blockStates *block.BlockStates) {
 				err := func(txDetails []*tx.TxDetail) error {
 					return c.pool.Submit(func() {
 						start := time.Now()
+						common.Test(c.config.BlockConfig.FeatureTest, c.config.BlockConfig.FunctionNameTest, "CreateTxDetails")
 						err = c.bc.DB().TxDetailModel.CreateTxDetails(txDetails)
 						metrics.AddTxDetailsMetrics.Set(float64(time.Since(start).Milliseconds()))
 						if err != nil {
@@ -1001,6 +1024,7 @@ func (c *Committer) saveBlockDataFunc(blockStates *block.BlockStates) {
 			panic("saveBlockDataFunc failed: " + err.Error())
 		}
 	}
+	common.Test(c.config.BlockConfig.FeatureTest, c.config.BlockConfig.FunctionNameTest, "saveBlockDataFunc")
 
 	metrics.SaveBlockDataMetrics.WithLabelValues("all").Set(float64(time.Since(start).Milliseconds()))
 	c.finalSaveBlockDataWorker.Enqueue(blockStates)
@@ -1024,6 +1048,8 @@ func (c *Committer) finalSaveBlockDataFunc(blockStates *block.BlockStates) {
 		if err != nil {
 			return err
 		}
+		common.Test(c.config.BlockConfig.FeatureTest, c.config.BlockConfig.FunctionNameTest, "finalSaveBlockDataFunc")
+
 		metrics.FinalSaveBlockDataMetrics.WithLabelValues("update_block_to_pending").Set(float64(time.Since(start).Milliseconds()))
 		return err
 	})
