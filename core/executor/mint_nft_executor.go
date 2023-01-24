@@ -3,6 +3,12 @@ package executor
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	nftModels "github.com/bnb-chain/zkbnb/core/model"
+	"github.com/go-openapi/swag"
+	"k8s.io/kube-openapi/pkg/validation/validate"
+	"reflect"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -60,7 +66,9 @@ func (e *MintNftExecutor) Prepare() error {
 
 func (e *MintNftExecutor) VerifyInputs(skipGasAmtChk, skipSigChk bool) error {
 	txInfo := e.txInfo
-
+	if err := e.Validate(); err != nil {
+		return err
+	}
 	if txInfo.CreatorAccountIndex != txInfo.ToAccountIndex {
 		return types.AppErrInvalidToAccount
 	}
@@ -103,7 +111,10 @@ func (e *MintNftExecutor) ApplyTransaction() error {
 
 	creatorAccount.AssetInfo[txInfo.GasFeeAssetId].Balance = ffmath.Sub(creatorAccount.AssetInfo[txInfo.GasFeeAssetId].Balance, txInfo.GasFeeAssetAmount)
 	creatorAccount.Nonce++
-
+	bm, err := json.Marshal(txInfo.MetaData)
+	if err != nil {
+		return err
+	}
 	stateCache := e.bc.StateDB()
 	stateCache.SetPendingAccount(txInfo.CreatorAccountIndex, creatorAccount)
 	stateCache.SetPendingNft(txInfo.NftIndex, &nft.L2Nft{
@@ -113,6 +124,10 @@ func (e *MintNftExecutor) ApplyTransaction() error {
 		NftContentHash:      txInfo.NftContentHash,
 		CreatorTreasuryRate: txInfo.CreatorTreasuryRate,
 		CollectionId:        txInfo.NftCollectionId,
+		IpnsName:            txInfo.IpnsName,
+		IpnsId:              txInfo.IpnsId,
+		Metadata:            string(bm),
+		IpfsStatus:          nft.NotConfirmed,
 	})
 	stateCache.SetPendingGas(txInfo.GasFeeAssetId, txInfo.GasFeeAssetAmount)
 	return e.BaseExecutor.ApplyTransaction()
@@ -261,4 +276,142 @@ func (e *MintNftExecutor) GenerateTxDetails() ([]*tx.TxDetail, error) {
 		IsGas:           true,
 	})
 	return txDetails, nil
+}
+
+func (e *MintNftExecutor) Validate() error {
+	if err := validate.Required("MetaData", "body", e.txInfo.MetaData); err != nil {
+		return err
+	}
+	var res []error
+	if err := e.validateName(); err != nil {
+		res = append(res, err)
+	}
+	if err := e.validateImage(); err != nil {
+		res = append(res, err)
+	}
+	if err := e.validateAttribute(); err != nil {
+		res = append(res, err)
+	}
+	if len(res) > 0 {
+		err := fmt.Sprintln(res)
+		return errors.New(err)
+	}
+	return nil
+}
+
+func (e *MintNftExecutor) validateCollectionID() error {
+
+	if err := validate.Required("collectionId", "body", e.txInfo.NftCollectionId); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (e *MintNftExecutor) validateCreatorEarningRate() error {
+
+	if err := validate.Required("creatorEarningRate", "body", e.txInfo.CreatorTreasuryRate); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (e *MintNftExecutor) validateImage() error {
+
+	if err := validate.Required("image", "body", e.txInfo.MetaData.Image); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (e *MintNftExecutor) validateName() error {
+
+	if err := validate.Required("name", "body", e.txInfo.MetaData.Name); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (e *MintNftExecutor) validateAttribute() error {
+	if swag.IsZero(e.txInfo.MetaData.Attributes) { // not required
+		return nil
+	}
+	var res []error
+	var result []*interface{}
+	err := json.Unmarshal([]byte(e.txInfo.MetaData.Attributes), &result)
+	if err != nil {
+		return err
+	}
+	if swag.IsZero(result) { // not required
+		return nil
+	}
+	for i := 0; i < len(result); i++ {
+		value := result[i]
+		if swag.IsZero(value) { // not required
+			continue
+		}
+		att, err := json.Marshal(value)
+		if err != nil {
+			res = append(res, err)
+		}
+		anyMap := make(map[string]interface{}, 0)
+		if err := json.Unmarshal(att, &anyMap); err != nil {
+			res = append(res, err)
+			continue
+		}
+		v, _ := anyMap["display_type"]
+		if v == nil {
+			res = validatePropertiesAttribute(att, res)
+			continue
+		} else {
+			kind := reflect.ValueOf(v)
+			if reflect.String != kind.Kind() {
+				res = append(res, errors.New("display_type must String "))
+				continue
+			}
+			displayType := v.(string)
+			switch strings.ToLower(displayType) {
+			case types.AttributesProperties:
+				res = validatePropertiesAttribute(att, res)
+			case types.AttributesLevels:
+				res = validateAttribute(att, res)
+			case types.AttributesStats:
+				res = validateAttribute(att, res)
+			}
+		}
+	}
+	if len(res) > 0 {
+		err := fmt.Sprintln(res)
+		return errors.New(err)
+	}
+	return nil
+}
+
+func validatePropertiesAttribute(att []byte, res []error) []error {
+	var propertiesAttribute nftModels.PropertiesAttribute
+	err := json.Unmarshal(att, &propertiesAttribute)
+	if err != nil {
+		res = append(res, err)
+	}
+	err = propertiesAttribute.Validate()
+	if err != nil {
+		res = append(res, err)
+	}
+	return res
+}
+
+func validateAttribute(att []byte, res []error) []error {
+	var attribute nftModels.Attribute
+	err := json.Unmarshal(att, &attribute)
+	if err != nil {
+		res = append(res, err)
+	}
+	err = attribute.Validate()
+	if err != nil {
+		res = append(res, err)
+	}
+	return res
 }

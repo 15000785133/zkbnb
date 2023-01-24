@@ -2,13 +2,20 @@ package transaction
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"github.com/bnb-chain/zkbnb-crypto/wasm/txtypes"
+	common2 "github.com/bnb-chain/zkbnb/common"
+	nftModels "github.com/bnb-chain/zkbnb/core/model"
 	"github.com/bnb-chain/zkbnb/dao/dbcache"
+	"github.com/bnb-chain/zkbnb/dao/nft"
 	"github.com/bnb-chain/zkbnb/service/apiserver/internal/signature"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
+	"gorm.io/gorm"
 
 	"github.com/zeromicro/go-zero/core/logx"
 
@@ -92,9 +99,43 @@ func (s *SendTxLogic) SendTx(req *types.ReqSendTx) (resp *types.TxHash, err erro
 	if newTx.BaseTx.TxType == types2.TxTypeCreateCollection {
 		newTx.BaseTx.CollectionId = types2.NilCollectionNonce
 	}
-	if err := s.svcCtx.TxPoolModel.CreateTxs([]*tx.PoolTx{{BaseTx: newTx.BaseTx}}); err != nil {
-		logx.Errorf("fail to create pool tx: %v, err: %s", newTx, err.Error())
-		return resp, types2.AppErrInternal
+	if newTx.BaseTx.TxType == types2.TxTypeMintNft {
+		txInfo, _ := types2.ParseMintNftTxInfo(req.TxInfo)
+		content, err := sendToIpfs(txInfo, newTx.BaseTx.TxHash)
+		if err != nil {
+			return resp, err
+		}
+		history := &nft.L2NftMetadataHistory{
+			TxHash:   newTx.BaseTx.TxHash,
+			NftIndex: newTx.BaseTx.NftIndex,
+			IpnsName: txInfo.IpnsName,
+			IpnsId:   txInfo.IpnsId,
+			Mutable:  txInfo.MetaData.MutableAttribute,
+			Metadata: content,
+			Status:   nft.NotConfirmed,
+		}
+		b, err := json.Marshal(txInfo)
+		if err != nil {
+			return resp, err
+		}
+		newTx.BaseTx.TxInfo = string(b)
+		err = s.svcCtx.DB.Transaction(func(db *gorm.DB) error {
+			err = s.svcCtx.NftMetadataHistoryModel.CreateL2NftMetadataHistoryInTransact(db, history)
+			if err != nil {
+				return err
+			}
+			err = s.svcCtx.TxPoolModel.CreateTxsInTransact(db, []*tx.PoolTx{{BaseTx: newTx.BaseTx}})
+			return err
+		})
+		if err != nil {
+			logx.Errorf("fail to create pool tx: %v, err: %s", newTx, err.Error())
+			return resp, types2.AppErrInternal
+		}
+	} else {
+		if err := s.svcCtx.TxPoolModel.CreateTxs([]*tx.PoolTx{{BaseTx: newTx.BaseTx}}); err != nil {
+			logx.Errorf("fail to create pool tx: %v, err: %s", newTx, err.Error())
+			return resp, types2.AppErrInternal
+		}
 	}
 	s.svcCtx.RedisCache.Set(context.Background(), dbcache.AccountNonceKeyByIndex(newTx.AccountIndex), newTx.Nonce)
 	resp.TxHash = newTx.TxHash
@@ -143,4 +184,44 @@ func (s *SendTxLogic) verifySignature(TxType uint32, TxInfo, Signature string) e
 		return errors.New("Tx Signature Error")
 	}
 	return nil
+}
+
+func sendToIpfs(txInfo *txtypes.MintNftTxInfo, txHash string) (string, error) {
+	ipnsName := txHash
+	ipnsId, err := common2.Ipfs.GenerateIPNS(ipnsName)
+	if err != nil {
+		return "", err
+	}
+	cid, content, err := uploadIpfs(&nftModels.NftMetaData{
+		Image:       txInfo.MetaData.Image,
+		Name:        txInfo.MetaData.Name,
+		Description: txInfo.MetaData.Description,
+		Attributes:  txInfo.MetaData.Attributes,
+		Ipns:        fmt.Sprintf("%s%s", "https://ipfs.io/ipns/", ipnsId.Id),
+	})
+	if err != nil {
+		return "", err
+	}
+	hash, err := common2.Ipfs.GenerateHash(cid)
+	if err != nil {
+		return "", err
+	}
+	txInfo.NftContentHash = hash
+	txInfo.IpnsName = ipnsName
+	txInfo.IpnsId = ipnsId.Id
+	return content, nil
+}
+
+func uploadIpfs(data *nftModels.NftMetaData) (string, string, error) {
+	b, err := json.Marshal(data)
+	if err != nil {
+		return "", "", err
+	}
+	content := string(b)
+	cid, err := common2.Ipfs.Upload(content)
+
+	if err != nil {
+		return "", "", err
+	}
+	return cid, content, nil
 }
