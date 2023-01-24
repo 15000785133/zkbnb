@@ -279,8 +279,11 @@ func (e *MintNftExecutor) GenerateTxDetails() ([]*tx.TxDetail, error) {
 }
 
 func (e *MintNftExecutor) Validate() error {
-	if err := validate.Required("MetaData", "body", e.txInfo.MetaData); err != nil {
-		return err
+	//if err := validate.Required("MetaData", "body", e.txInfo.MetaData); err != nil {
+	//	return err
+	//}
+	if swag.IsZero(e.txInfo.MetaData) { // not required
+		return nil
 	}
 	var res []error
 	if err := e.validateName(); err != nil {

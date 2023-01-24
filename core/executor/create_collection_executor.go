@@ -209,8 +209,11 @@ func (e *CreateCollectionExecutor) GenerateTxDetails() ([]*tx.TxDetail, error) {
 }
 
 func (e *CreateCollectionExecutor) Validate() error {
-	if err := validate.Required("MetaData", "body", e.txInfo.MetaData); err != nil {
-		return err
+	//if err := validate.Required("MetaData", "body", e.txInfo.MetaData); err != nil {
+	//	return err
+	//}
+	if swag.IsZero(e.txInfo.MetaData) { // not required
+		return nil
 	}
 
 	var res []error

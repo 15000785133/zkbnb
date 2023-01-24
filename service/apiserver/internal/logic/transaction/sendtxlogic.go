@@ -105,12 +105,18 @@ func (s *SendTxLogic) SendTx(req *types.ReqSendTx) (resp *types.TxHash, err erro
 		if err != nil {
 			return resp, err
 		}
+		var mutable string
+		if txInfo.MetaData == nil {
+			mutable = ""
+		} else {
+			mutable = txInfo.MetaData.MutableAttribute
+		}
 		history := &nft.L2NftMetadataHistory{
 			TxHash:   newTx.BaseTx.TxHash,
 			NftIndex: newTx.BaseTx.NftIndex,
 			IpnsName: txInfo.IpnsName,
 			IpnsId:   txInfo.IpnsId,
-			Mutable:  txInfo.MetaData.MutableAttribute,
+			Mutable:  mutable,
 			Metadata: content,
 			Status:   nft.NotConfirmed,
 		}
@@ -192,15 +198,30 @@ func sendToIpfs(txInfo *txtypes.MintNftTxInfo, txHash string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	cid, content, err := uploadIpfs(&nftModels.NftMetaData{
-		Image:       txInfo.MetaData.Image,
-		Name:        txInfo.MetaData.Name,
-		Description: txInfo.MetaData.Description,
-		Attributes:  txInfo.MetaData.Attributes,
-		Ipns:        fmt.Sprintf("%s%s", "https://ipfs.io/ipns/", ipnsId.Id),
-	})
-	if err != nil {
-		return "", err
+	var cid string
+	var content string
+	if txInfo.MetaData == nil {
+		cid, content, err = uploadIpfs(&nftModels.NftMetaData{
+			Image:       "",
+			Name:        "",
+			Description: "",
+			Attributes:  "",
+			Ipns:        fmt.Sprintf("%s%s", "https://ipfs.io/ipns/", ipnsId.Id),
+		})
+		if err != nil {
+			return "", err
+		}
+	} else {
+		cid, content, err = uploadIpfs(&nftModels.NftMetaData{
+			Image:       txInfo.MetaData.Image,
+			Name:        txInfo.MetaData.Name,
+			Description: txInfo.MetaData.Description,
+			Attributes:  txInfo.MetaData.Attributes,
+			Ipns:        fmt.Sprintf("%s%s", "https://ipfs.io/ipns/", ipnsId.Id),
+		})
+		if err != nil {
+			return "", err
+		}
 	}
 	hash, err := common2.Ipfs.GenerateHash(cid)
 	if err != nil {

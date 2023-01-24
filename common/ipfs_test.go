@@ -115,8 +115,8 @@ func TestOnlyHash(t *testing.T) {
 }
 
 func TestKeyIpns(t *testing.T) {
-	sh := shell.NewShell("localhost:5001")
-	key1, _ := sh.KeyGen(context.Background(), "cid+index", shell.KeyGen.Type("ed25519"))
+	sh := shell.NewShell("10.23.23.40:5001")
+	key1, _ := sh.KeyGen(context.Background(), "2200cd82f149acf3be938322ba61a43442393cdae659fa201aabcb30d814a198", shell.KeyGen.Type("ed25519"))
 	fmt.Println(key1)
 }
 
