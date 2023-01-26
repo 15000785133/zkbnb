@@ -44,6 +44,7 @@ type (
 		GetNfts(limit int64, offset int64) (nfts []*L2Nft, err error)
 		GetCountByGreaterHeight(blockHeight int64) (count int64, err error)
 		UpdateIpfsStatusByNftIndexInTransact(tx *gorm.DB, nftIndex int64) error
+		GetMaxNftIndex() (nftIndex int64, err error)
 	}
 	defaultL2NftModel struct {
 		table string
@@ -223,6 +224,15 @@ func (m *defaultL2NftModel) UpdateIpfsStatusByNftIndexInTransact(tx *gorm.DB, nf
 		return dbTx.Error
 	}
 	return nil
+}
+func (m *defaultL2NftModel) GetMaxNftIndex() (nftIndex int64, err error) {
+	dbTx := m.DB.Table(m.table).Select("max(nft_index)").Find(&nftIndex)
+	if dbTx.Error != nil {
+		return -1, types.DbErrSqlOperation
+	} else if dbTx.RowsAffected == 0 {
+		return -1, types.DbErrNotFound
+	}
+	return nftIndex, nil
 }
 
 func (ai *L2Nft) DeepCopy() *L2Nft {
