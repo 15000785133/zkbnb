@@ -157,21 +157,18 @@ func (w *Witness) initState() error {
 	}
 	w.treeCtx = treeCtx
 	blockInfo, err := w.blockModel.GetBlockByHeightWithoutTx(witnessHeight + 1)
-	if err != nil {
+	if err != nil && err != types.DbErrNotFound {
 		logx.Error("get block failed: ", err)
 		panic("get block failed: " + err.Error())
 	}
 	accountIndexes := make([]int64, 0)
-	if blockInfo.AccountIndexes != "[]" && blockInfo.AccountIndexes != "" {
+	if blockInfo != nil && blockInfo.AccountIndexes != "[]" && blockInfo.AccountIndexes != "" {
 		err = json.Unmarshal([]byte(blockInfo.AccountIndexes), &accountIndexes)
 		if err != nil {
 			logx.Error("json err unmarshal failed")
 			panic("json err unmarshal failed: " + err.Error())
 		}
 	}
-	//todo there are a lot of heights to rollback,need to get some accounts
-	// init accountTree and accountStateTrees
-	// the initial block number use the latest sent block
 	w.accountTree, w.assetTrees, err = tree.InitAccountTree(
 		w.accountModel,
 		w.accountHistoryModel,

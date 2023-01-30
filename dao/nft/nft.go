@@ -43,6 +43,8 @@ type (
 		UpdateByIndexInTransact(tx *gorm.DB, l2nft *L2Nft) error
 		GetNfts(limit int64, offset int64) (nfts []*L2Nft, err error)
 		GetCountByGreaterHeight(blockHeight int64) (count int64, err error)
+		GetMaxNftIndex() (nftIndex int64, err error)
+		GetByNftIndexRange(fromNftIndex int64, toNftIndex int64) (nfts []*L2Nft, err error)
 	}
 	defaultL2NftModel struct {
 		table string
@@ -206,6 +208,27 @@ func (m *defaultL2NftModel) GetCountByGreaterHeight(blockHeight int64) (count in
 		return 0, nil
 	}
 	return count, nil
+}
+
+func (m *defaultL2NftModel) GetMaxNftIndex() (nftIndex int64, err error) {
+	var l2Nft L2Nft
+	dbTx := m.DB.Table(m.table).Select("nft_index").Order("nft_index desc").Limit(1).Find(&l2Nft)
+	if dbTx.Error != nil {
+		return -1, types.DbErrSqlOperation
+	} else if dbTx.RowsAffected == 0 {
+		return -1, types.DbErrNotFound
+	}
+	return l2Nft.NftIndex, nil
+}
+
+func (m *defaultL2NftModel) GetByNftIndexRange(fromNftIndex int64, toNftIndex int64) (nfts []*L2Nft, err error) {
+	dbTx := m.DB.Table(m.table).Where("nft_index >= ? and nft_index <= ?", fromNftIndex, toNftIndex).Find(&nfts)
+	if dbTx.Error != nil {
+		return nil, types.DbErrSqlOperation
+	} else if dbTx.RowsAffected == 0 {
+		return nil, types.DbErrNotFound
+	}
+	return nfts, nil
 }
 
 func (ai *L2Nft) DeepCopy() *L2Nft {

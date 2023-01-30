@@ -76,7 +76,6 @@ type StateDB struct {
 	prunedBlockHeight            int64
 	prunedBlockHeightLock        sync.RWMutex
 	PreviousStateRootImmutable   string
-	MaxNftIndexUsedImmutable     int64
 	MaxPollTxIdRollbackImmutable uint
 
 	needRestoreExecutedTxs     bool
@@ -84,6 +83,8 @@ type StateDB struct {
 
 	maxPoolTxIdFinished     uint
 	maxPoolTxIdFinishedLock sync.RWMutex
+	nextNftIndex            int64
+	nextNftIndexLock        sync.RWMutex
 }
 
 func NewStateDB(treeCtx *tree.Context, chainDb *ChainDB,
@@ -530,7 +531,7 @@ func (s *StateDB) UpdateAssetTree(cleanDirty bool, stateDataCopy *StateDataCopy)
 		taskNum++
 		err := func(accountIndex int64, assets []int64) error {
 			return gopool.Submit(func() {
-				index, leaf, err := s.setAndCommitAssetTree(accountIndex, assets, stateDataCopy)
+				index, leaf, err := s.SetAndCommitAssetTree(accountIndex, assets, stateDataCopy)
 				resultChan <- &treeUpdateResp{
 					role:  accountTreeRole,
 					index: index,
@@ -628,7 +629,7 @@ func (s *StateDB) SetAccountAndNftTree(stateDataCopy *StateDataCopy) error {
 	return nil
 }
 
-func (s *StateDB) setAndCommitAssetTree(accountIndex int64, assets []int64, stateCopy *StateDataCopy) (int64, []byte, error) {
+func (s *StateDB) SetAndCommitAssetTree(accountIndex int64, assets []int64, stateCopy *StateDataCopy) (int64, []byte, error) {
 	start := time.Now()
 	account, exist := stateCopy.StateCache.GetPendingAccount(accountIndex)
 	metrics.AccountTreeTimeGauge.WithLabelValues("cache_get_account").Set(float64(time.Since(start).Milliseconds()))
@@ -758,24 +759,28 @@ func (s *StateDB) GetNextAccountIndex() int64 {
 	return s.AccountAssetTrees.GetNextAccountIndex()
 }
 
-func (s *StateDB) GetNextNftIndex() int64 {
-	//todo save nftindex to memcache
-	maxNftIndex, err := s.chainDb.L2NftModel.GetLatestNftIndex()
-	if err != nil {
-		logx.Severef("get latest nft index error: %s", err.Error())
-		panic("get latest nft index error: " + err.Error())
-	}
+func (s *StateDB) GetCurrentAccountIndex() int64 {
+	return s.AccountAssetTrees.GetCurrentAccountIndex()
+}
 
-	for index := range s.PendingNftMap {
-		if index > maxNftIndex {
-			maxNftIndex = index
-		}
+func (c *StateDB) UpdateNftIndex(nftIndex int64) {
+	c.nextNftIndexLock.Lock()
+	if c.nextNftIndex < nftIndex {
+		c.nextNftIndex = nftIndex
 	}
+	c.nextNftIndexLock.Unlock()
+}
 
-	if s.MaxNftIndexUsedImmutable > maxNftIndex {
-		maxNftIndex = s.MaxNftIndexUsedImmutable
-	}
-	return maxNftIndex + 1
+func (c *StateDB) GetNextNftIndex() int64 {
+	c.nextNftIndexLock.RLock()
+	defer c.nextNftIndexLock.RUnlock()
+	return c.nextNftIndex + 1
+}
+
+func (c *StateDB) GetCurrentNftIndex() int64 {
+	c.nextNftIndexLock.RLock()
+	defer c.nextNftIndexLock.RUnlock()
+	return c.nextNftIndex
 }
 
 func (s *StateDB) GetGasAccountIndex() (int64, error) {

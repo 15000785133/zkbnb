@@ -10,6 +10,7 @@ import (
 	"github.com/bnb-chain/zkbnb/common/metrics"
 	"github.com/bnb-chain/zkbnb/core/statedb"
 	"github.com/bnb-chain/zkbnb/dao/account"
+	"github.com/bnb-chain/zkbnb/dao/dbcache"
 	"github.com/bnb-chain/zkbnb/dao/nft"
 	"github.com/panjf2000/ants/v2"
 	"sort"
@@ -93,7 +94,6 @@ func NewCommitter(config *Config) (*Committer, error) {
 		saveBlockDataPoolSize = 100
 	}
 	pool, err := ants.NewPool(saveBlockDataPoolSize)
-
 	committer := &Committer{
 		running:            true,
 		config:             config,
@@ -217,7 +217,6 @@ func (c *Committer) pullPoolTxs() {
 					logx.Infof("not equal id=%s,but delay seconds<5,break it", poolTx.ID)
 					break
 				} else {
-					//todo add compensation function
 					logx.Infof("not equal id=%s,but delay seconds>5,do it", poolTx.ID)
 				}
 			}
@@ -1051,7 +1050,7 @@ func (c *Committer) finalSaveBlockDataFunc(blockStates *block.BlockStates) {
 		common.Test(c.config.BlockConfig.FeatureTest, c.config.BlockConfig.FunctionNameTest, "finalSaveBlockDataFunc")
 
 		metrics.FinalSaveBlockDataMetrics.WithLabelValues("update_block_to_pending").Set(float64(time.Since(start).Milliseconds()))
-		return err
+		return nil
 	})
 	if err != nil {
 		logx.Errorf("finalSaveBlockDataFunc failed:%s,blockHeight:%d", err.Error(), blockStates.Block.BlockHeight)
@@ -1130,46 +1129,119 @@ func (c *Committer) getLatestExecutedRequestId() (int64, error) {
 }
 
 func (c *Committer) loadAllAccounts() {
-	limit := int64(1000)
-	offset := int64(0)
-	for {
-		accounts, err := c.bc.AccountModel.GetUsers(limit, offset)
+	start := time.Now()
+	logx.Infof("load all accounts start")
+	totalTask := 0
+	errChan := make(chan error, 1)
+	defer close(errChan)
+	batchReloadSize := 1000
+	maxAccountIndex, err := c.bc.AccountModel.GetMaxAccountIndex()
+	if err != nil && err != types.DbErrNotFound {
+		logx.Severef("load all accounts failed:%s", err.Error())
+		panic("load all accounts failed: " + err.Error())
+	}
+	if maxAccountIndex == -1 {
+		return
+	}
+	for i := 0; int64(i) <= maxAccountIndex; i += batchReloadSize {
+		toAccountIndex := int64(i+batchReloadSize) - 1
+		if toAccountIndex > maxAccountIndex {
+			toAccountIndex = maxAccountIndex
+		}
+		totalTask++
+		err := func(fromAccountIndex int64, toAccountIndex int64) error {
+			return c.pool.Submit(func() {
+				start := time.Now()
+				accounts, err := c.bc.AccountModel.GetByAccountIndexRange(fromAccountIndex, toAccountIndex)
+				if err != nil && err != types.DbErrNotFound {
+					logx.Severef("load all accounts failed:%s", err.Error())
+					errChan <- err
+					return
+				}
+				if accounts != nil {
+					for _, accountInfo := range accounts {
+						formatAccount, err := chain.ToFormatAccountInfo(accountInfo)
+						if err != nil {
+							logx.Severef("load all accounts failed:%s", err.Error())
+							errChan <- err
+							return
+						}
+						c.bc.Statedb.AccountCache.Add(accountInfo.AccountIndex, formatAccount)
+					}
+				}
+				logx.Infof("GetByNftIndexRange cost time %s", float64(time.Since(start).Milliseconds()))
+				errChan <- nil
+			})
+		}(int64(i), toAccountIndex)
 		if err != nil {
-			logx.Errorf("load all accounts failed:%s", err.Error())
+			logx.Severef("load all accounts failed:%s", err.Error())
 			panic("load all accounts failed: " + err.Error())
 		}
-		if accounts == nil {
-			return
-		}
-		for _, accountInfo := range accounts {
-			offset++
-			formatAccount, err := chain.ToFormatAccountInfo(accountInfo)
-			if err != nil {
-				logx.Errorf("load all accounts failed:%s", err.Error())
-				panic("load all accounts failed: " + err.Error())
-			}
-			c.bc.Statedb.AccountCache.Add(accountInfo.AccountIndex, formatAccount)
+	}
+
+	for i := 0; i < totalTask; i++ {
+		err := <-errChan
+		if err != nil {
+			logx.Severef("load all accounts failed:%s", err.Error())
+			panic("load all accounts failed: " + err.Error())
 		}
 	}
+	logx.Infof("load all accounts end. cost time %s", float64(time.Since(start).Milliseconds()))
 }
 
 func (c *Committer) loadAllNfts() {
-	limit := int64(1000)
-	offset := int64(0)
-	for {
-		nfts, err := c.bc.L2NftModel.GetNfts(limit, offset)
+	start := time.Now()
+	logx.Infof("load all nfts start")
+	totalTask := 0
+	errChan := make(chan error, 1)
+	defer close(errChan)
+	batchReloadSize := 1000
+	maxNftIndex, err := c.bc.L2NftModel.GetMaxNftIndex()
+	if err != nil && err != types.DbErrNotFound {
+		logx.Severef("load all nfts failed:%s", err.Error())
+		panic("load all nfts failed: " + err.Error())
+	}
+	if maxNftIndex == -1 {
+		return
+	}
+	for i := 0; int64(i) <= maxNftIndex; i += batchReloadSize {
+		toNftIndex := int64(i+batchReloadSize) - 1
+		if toNftIndex > maxNftIndex {
+			toNftIndex = maxNftIndex
+		}
+		totalTask++
+		err := func(fromNftIndex int64, toNftIndex int64) error {
+			return c.pool.Submit(func() {
+				start := time.Now()
+				nfts, err := c.bc.L2NftModel.GetByNftIndexRange(fromNftIndex, toNftIndex)
+				if err != nil && err != types.DbErrNotFound {
+					logx.Severef("load all nfts failed:%s", err.Error())
+					errChan <- err
+					return
+				}
+				if nfts != nil {
+					for _, nftInfo := range nfts {
+						c.bc.Statedb.NftCache.Add(nftInfo.NftIndex, nftInfo)
+					}
+				}
+				logx.Infof("GetByNftIndexRange cost time %s", float64(time.Since(start).Milliseconds()))
+				errChan <- nil
+			})
+		}(int64(i), toNftIndex)
 		if err != nil {
-			logx.Errorf("load all nfts failed:%s", err.Error())
+			logx.Severef("load all nfts failed:%s", err.Error())
 			panic("load all nfts failed: " + err.Error())
 		}
-		if nfts == nil {
-			return
-		}
-		for _, nftInfo := range nfts {
-			offset++
-			c.bc.Statedb.NftCache.Add(nftInfo.NftIndex, nftInfo)
+	}
+
+	for i := 0; i < totalTask; i++ {
+		err := <-errChan
+		if err != nil {
+			logx.Severef("load all nfts failed:%s", err.Error())
+			panic("load all nfts failed: " + err.Error())
 		}
 	}
+	logx.Infof("load all nfts end. cost time %s", float64(time.Since(start).Milliseconds()))
 }
 
 func (c *Committer) PendingTxNum() {
@@ -1178,12 +1250,9 @@ func (c *Committer) PendingTxNum() {
 	metrics.PendingTxNumMetrics.Set(float64(pendingTxCount))
 }
 
-func (c *Committer) CompensatePoolTx() {
-	fromId := c.bc.Statedb.GetMaxPoolTxIdFinished() - 100000
-	if fromId < 0 {
-		fromId = 0
-	}
-	pendingTxs, err := c.bc.TxPoolModel.GetTxsByStatusAndIdRange(tx.StatusPending, fromId, c.bc.Statedb.GetMaxPoolTxIdFinished())
+func (c *Committer) CompensatePendingPoolTx() {
+	fromCreatAt := time.Now().Add(time.Duration(-10) * time.Minute).UnixMilli()
+	pendingTxs, err := c.bc.TxPoolModel.GetTxsByStatusAndCreateTime(tx.StatusPending, time.UnixMilli(fromCreatAt), c.bc.Statedb.GetMaxPoolTxIdFinished())
 	if err != nil {
 		logx.Errorf("get pending transactions from tx pool for compensation failed:%s", err.Error())
 		return
@@ -1191,6 +1260,12 @@ func (c *Committer) CompensatePoolTx() {
 	if pendingTxs != nil {
 		for _, poolTx := range pendingTxs {
 			logx.Severef("get pending transactions from tx pool for compensation id:%s", poolTx.ID)
+			_, found := c.bc.Statedb.MemCache.Get(dbcache.PendingPoolTxKeyByPoolTxId(poolTx.ID))
+			if found {
+				logx.Infof("add pool tx to the queue repeatedly in the compensation task id:%s", poolTx.ID)
+				continue
+			}
+			c.bc.Statedb.MemCache.SetWithTTL(dbcache.PendingPoolTxKeyByPoolTxId(poolTx.ID), poolTx.ID, 0, time.Duration(1)*time.Hour)
 			c.executeTxWorker.Enqueue(poolTx)
 		}
 	}
