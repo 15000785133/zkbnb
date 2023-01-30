@@ -256,7 +256,7 @@ func (c *Committer) executeTxFunc() {
 		if curBlock.BlockStatus > block.StatusProposing {
 			previousHeight := curBlock.BlockHeight
 			curBlock, err = c.bc.InitNewBlock()
-			logx.Infof("1 init new block, current height=%s,previous height=%s,blockId=%s", curBlock.BlockHeight, previousHeight, curBlock.ID)
+			logx.Infof("1 init new block, current height=%d,previous height=%d,blockId=%d", curBlock.BlockHeight, previousHeight, curBlock.ID)
 			if err != nil {
 				logx.Errorf("propose new block failed:%s", err)
 				panic("propose new block failed: " + err.Error())
