@@ -209,23 +209,24 @@ func (e *CreateCollectionExecutor) GenerateTxDetails() ([]*tx.TxDetail, error) {
 }
 
 func (e *CreateCollectionExecutor) Validate() error {
-	//if err := validate.Required("MetaData", "body", e.txInfo.MetaData); err != nil {
-	//	return err
-	//}
-	if swag.IsZero(e.txInfo.MetaData) { // not required
-		return nil
+	if err := validate.Required("MetaData", "body", e.txInfo.MetaData); err != nil {
+		return err
+	}
+	var res []error
+	// Required
+	if err := e.validateLogoImage(); err != nil {
+		res = append(res, err)
 	}
 
-	var res []error
-	// Mandatory
 	if err := e.validateCategoryID(); err != nil {
 		res = append(res, err)
 	}
+
+	// Not Required
 	if err := e.validateShortname(); err != nil {
 		res = append(res, err)
 	}
 
-	// Not mandatory
 	if err := e.validateBannerImage(); err != nil {
 		res = append(res, err)
 	}
@@ -243,14 +244,6 @@ func (e *CreateCollectionExecutor) Validate() error {
 	}
 
 	if err := e.validateInstagramUserName(); err != nil {
-		res = append(res, err)
-	}
-
-	if err := e.validateLogoImage(); err != nil {
-		res = append(res, err)
-	}
-
-	if err := e.validateShortname(); err != nil {
 		res = append(res, err)
 	}
 
@@ -383,8 +376,8 @@ func (e *CreateCollectionExecutor) validateInstagramUserName() error {
 }
 
 func (e *CreateCollectionExecutor) validateLogoImage() error {
-	if swag.IsZero(e.txInfo.MetaData.LogoImage) { // not required
-		return nil
+	if err := validate.Required("logoImage", "body", e.txInfo.MetaData.LogoImage); err != nil {
+		return err
 	}
 
 	if err := validate.MinLength("logoImage", "body", e.txInfo.MetaData.LogoImage, 4); err != nil {
@@ -399,11 +392,9 @@ func (e *CreateCollectionExecutor) validateLogoImage() error {
 }
 
 func (e *CreateCollectionExecutor) validateShortname() error {
-
-	if err := validate.Required("shortname", "body", e.txInfo.MetaData.Shortname); err != nil {
-		return err
+	if swag.IsZero(e.txInfo.MetaData.Shortname) { // not required
+		return nil
 	}
-
 	if err := validate.MinLength("shortname", "body", e.txInfo.MetaData.Shortname, 3); err != nil {
 		return err
 	}

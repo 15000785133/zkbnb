@@ -136,8 +136,8 @@ const (
 	CollectEmpty = iota
 	CollectArt
 	CollectScenery
-	CollectCartoon
 	CollectPhotography
+	CollectCartoon
 	CollectGames
 	CollectSports
 	CollectVirtualWorld

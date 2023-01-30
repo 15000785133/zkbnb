@@ -279,22 +279,36 @@ func (e *MintNftExecutor) GenerateTxDetails() ([]*tx.TxDetail, error) {
 }
 
 func (e *MintNftExecutor) Validate() error {
-	//if err := validate.Required("MetaData", "body", e.txInfo.MetaData); err != nil {
-	//	return err
-	//}
-	if swag.IsZero(e.txInfo.MetaData) { // not required
-		return nil
+	if err := validate.Required("MetaData", "body", e.txInfo.MetaData); err != nil {
+		return err
 	}
 	var res []error
-	if err := e.validateName(); err != nil {
+
+	//Required
+	if err := e.validateCollectionID(); err != nil {
 		res = append(res, err)
 	}
+
 	if err := e.validateImage(); err != nil {
 		res = append(res, err)
 	}
+
+	if err := e.validateName(); err != nil {
+		res = append(res, err)
+	}
+
+	//not Required
+	if err := e.validateDescription(); err != nil {
+		res = append(res, err)
+	}
+
 	if err := e.validateAttribute(); err != nil {
 		res = append(res, err)
 	}
+	if err := e.validateMutableAttribute(); err != nil {
+		res = append(res, err)
+	}
+
 	if len(res) > 0 {
 		err := fmt.Sprintln(res)
 		return errors.New(err)
@@ -304,16 +318,7 @@ func (e *MintNftExecutor) Validate() error {
 
 func (e *MintNftExecutor) validateCollectionID() error {
 
-	if err := validate.Required("collectionId", "body", e.txInfo.NftCollectionId); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (e *MintNftExecutor) validateCreatorEarningRate() error {
-
-	if err := validate.Required("creatorEarningRate", "body", e.txInfo.CreatorTreasuryRate); err != nil {
+	if err := validate.Required("nftCollectionId", "body", e.txInfo.NftCollectionId); err != nil {
 		return err
 	}
 
@@ -321,8 +326,15 @@ func (e *MintNftExecutor) validateCreatorEarningRate() error {
 }
 
 func (e *MintNftExecutor) validateImage() error {
-
 	if err := validate.Required("image", "body", e.txInfo.MetaData.Image); err != nil {
+		return err
+	}
+
+	if err := validate.MinLength("image", "body", e.txInfo.MetaData.Image, 4); err != nil {
+		return err
+	}
+
+	if err := validate.MaxLength("image", "body", e.txInfo.MetaData.Image, 256); err != nil {
 		return err
 	}
 
@@ -335,6 +347,46 @@ func (e *MintNftExecutor) validateName() error {
 		return err
 	}
 
+	if err := validate.MinLength("name", "body", e.txInfo.MetaData.Name, 3); err != nil {
+		return err
+	}
+
+	if err := validate.MaxLength("name", "body", e.txInfo.MetaData.Name, 64); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (e *MintNftExecutor) validateDescription() error {
+	if swag.IsZero(e.txInfo.MetaData.Description) { // not required
+		return nil
+	}
+
+	if err := validate.MinLength("description", "body", e.txInfo.MetaData.Description, 0); err != nil {
+		return err
+	}
+
+	if err := validate.MaxLength("description", "body", e.txInfo.MetaData.Description, 1024); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (e *MintNftExecutor) validateMutableAttribute() error {
+	if swag.IsZero(e.txInfo.MetaData.MutableAttribute) { // not required
+		return nil
+	}
+
+	if err := validate.MinLength("mutableAttribute", "body", e.txInfo.MetaData.MutableAttribute, 0); err != nil {
+		return err
+	}
+
+	if err := validate.MaxLength("mutableAttribute", "body", e.txInfo.MetaData.MutableAttribute, 1024); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -342,6 +394,14 @@ func (e *MintNftExecutor) validateAttribute() error {
 	if swag.IsZero(e.txInfo.MetaData.Attributes) { // not required
 		return nil
 	}
+	if err := validate.MinLength("attributes", "body", e.txInfo.MetaData.Attributes, 0); err != nil {
+		return err
+	}
+
+	if err := validate.MaxLength("attributes", "body", e.txInfo.MetaData.Attributes, 2048); err != nil {
+		return err
+	}
+
 	var res []error
 	var result []*interface{}
 	err := json.Unmarshal([]byte(e.txInfo.MetaData.Attributes), &result)
