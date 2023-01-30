@@ -202,22 +202,22 @@ func sendToIpfs(txInfo *txtypes.MintNftTxInfo, txHash string) (string, error) {
 	var content string
 	if txInfo.MetaData == nil {
 		cid, content, err = uploadIpfs(&nftModels.NftMetaData{
-			Image:       "",
-			Name:        "",
-			Description: "",
-			Attributes:  "",
-			Ipns:        fmt.Sprintf("%s%s", "https://ipfs.io/ipns/", ipnsId.Id),
+			Image:             "",
+			Name:              "",
+			Description:       "",
+			Attributes:        "",
+			MutableAttributes: fmt.Sprintf("%s%s", "https://ipfs.io/ipns/", ipnsId.Id),
 		})
 		if err != nil {
 			return "", err
 		}
 	} else {
 		cid, content, err = uploadIpfs(&nftModels.NftMetaData{
-			Image:       txInfo.MetaData.Image,
-			Name:        txInfo.MetaData.Name,
-			Description: txInfo.MetaData.Description,
-			Attributes:  txInfo.MetaData.Attributes,
-			Ipns:        fmt.Sprintf("%s%s", "https://ipfs.io/ipns/", ipnsId.Id),
+			Image:             txInfo.MetaData.Image,
+			Name:              txInfo.MetaData.Name,
+			Description:       txInfo.MetaData.Description,
+			Attributes:        txInfo.MetaData.Attributes,
+			MutableAttributes: fmt.Sprintf("%s%s", "https://ipfs.io/ipns/", ipnsId.Id),
 		})
 		if err != nil {
 			return "", err
