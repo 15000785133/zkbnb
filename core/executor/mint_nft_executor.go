@@ -285,10 +285,6 @@ func (e *MintNftExecutor) Validate() error {
 	var res []error
 
 	//Required
-	if err := e.validateCollectionID(); err != nil {
-		res = append(res, err)
-	}
-
 	if err := e.validateImage(); err != nil {
 		res = append(res, err)
 	}
@@ -313,15 +309,6 @@ func (e *MintNftExecutor) Validate() error {
 		err := fmt.Sprintln(res)
 		return errors.New(err)
 	}
-	return nil
-}
-
-func (e *MintNftExecutor) validateCollectionID() error {
-
-	if err := validate.Required("nftCollectionId", "body", e.txInfo.NftCollectionId); err != nil {
-		return err
-	}
-
 	return nil
 }
 
