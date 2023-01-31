@@ -6,19 +6,18 @@
 # npm install pm2 -g
 # You should install nodejs above v14
 # sh deploy-local.sh new  // append the new parameter to generate pk and vk data when you first run this script.
-##
+
 # Attention: Set the following variables to the right one before running!!!
 DEPLOY_PATH=~/zkbnb-deploy
 KEY_PATH=~/.zkbnb
 ZkBNB_REPO_PATH=$(cd `dirname $0`; pwd)
 CMC_TOKEN=cfce503f-fake-fake-fake-bbab5257dac8
-NETWORK_RPC_SYS_CONFIG_NAME=BscTestNetworkRpc # BscTestNetworkRpc or LocalTestNetworkRpc
-BSC_TESTNET_RPC=https://data-seed-prebsc-1-s1.binance.org:8545
-BSC_TESTNET_PRIVATE_KEY=6a9bffc6689b38e4791a797200e0f8c6c6eb215687351e37daf7ae34fbba0b98
-
+NETWORK_RPC_SYS_CONFIG_NAME=LocalTestNetworkRpc # BscTestNetworkRpc or LocalTestNetworkRpc
+BSC_TESTNET_RPC=http://localhost:8545
+BSC_TESTNET_PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 
 export PATH=$PATH:/usr/local/go/bin:/usr/local/go/bin:/root/go/bin
-echo '0. stop old database/redis and docker run new database/redis'
+echo '0. stop old database/redis/L1 and docker run new database/redis/L1'
 pm2 delete all
 ZKBNB_CONTAINERS=$(docker ps -a |grep zkbnb|awk '{print $1}')
 [[ -z "${ZKBNB_CONTAINERS}" ]] || docker rm -f ${ZKBNB_CONTAINERS}
@@ -28,7 +27,7 @@ docker run -d --name zkbnb-postgres -p 5432:5432 \
   -e POSTGRES_PASSWORD=ZkBNB@123 \
   -e POSTGRES_USER=postgres \
   -e POSTGRES_DB=zkbnb postgres
-
+docker run -d -p 8545:8545 -p 7545:8545 --name zkbnb-contract srimannem/zkbnb:zkbnb-contract
 
 echo '1. basic config and git clone repos'
 export PATH=$PATH:/usr/local/go/bin/
@@ -72,7 +71,7 @@ cd ./zkbnb-contract
 cp -r .env.example .env
 sed -i -e "s~BSC_TESTNET_RPC=.*~BSC_TESTNET_RPC=${BSC_TESTNET_RPC}~" .env
 sed -i -e "s/BSC_TESTNET_PRIVATE_KEY=.*/BSC_TESTNET_PRIVATE_KEY=${BSC_TESTNET_PRIVATE_KEY}/" .env
-npm install
+yarn install
 npx hardhat --network BSCTestnet run ./scripts/deploy-keccak256/deploy.js
 echo 'Recorded latest contract addresses into ${DEPLOY_PATH}/zkbnb-contract/info/addresses.json'
 
@@ -129,7 +128,7 @@ TreeDB:
 " > ${DEPLOY_PATH}/zkbnb/service/prover/etc/config.yaml
 
 echo -e "
-go run ./cmd/zkbnb/main.go prover --config ${DEPLOY_PATH}/zkbnb/service/prover/etc/config.yaml --pprof --pprof.addr 0.0.0.0 --pprof.port 6060 --metrics --metrics.addr 0.0.0.0 --metrics.port 6060
+go run ./cmd/zkbnb/main.go prover --config ${DEPLOY_PATH}/zkbnb/service/prover/etc/config.yaml --pprof --pprof.addr 127.0.0.1 --pprof.port 6060 --metrics --metrics.addr 127.0.0.1 --metrics.port 6060
 " > run_prover.sh
 # remove the fist line if it includes -e
 sed -i '' -e '/-e/,1d' ${DEPLOY_PATH}/zkbnb/service/prover/etc/config.yaml
@@ -159,7 +158,7 @@ TreeDB:
 " > ${DEPLOY_PATH}/zkbnb/service/witness/etc/config.yaml
 
 echo -e "
-go run ./cmd/zkbnb/main.go witness --config ${DEPLOY_PATH}/zkbnb/service/witness/etc/config.yaml --pprof --pprof.addr 0.0.0.0 --pprof.port 6061 --metrics --metrics.addr 0.0.0.0 --metrics.port 6061
+go run ./cmd/zkbnb/main.go witness --config ${DEPLOY_PATH}/zkbnb/service/witness/etc/config.yaml --pprof --pprof.addr 127.0.0.1 --pprof.port 6061 --metrics --metrics.addr 127.0.0.1 --metrics.port 6061
 " > run_witness.sh
 # remove the fist line if it includes -e
 sed -i '' -e '/-e/,1d' ${DEPLOY_PATH}/zkbnb/service/witness/etc/config.yaml
@@ -194,7 +193,7 @@ TreeDB:
 " > ${DEPLOY_PATH}/zkbnb/service/monitor/etc/config.yaml
 
 echo -e "
-go run ./cmd/zkbnb/main.go monitor --config ${DEPLOY_PATH}/zkbnb/service/monitor/etc/config.yaml --pprof --pprof.addr 0.0.0.0 --pprof.port 6062 --metrics --metrics.addr 0.0.0.0 --metrics.port 6062
+go run ./cmd/zkbnb/main.go monitor --config ${DEPLOY_PATH}/zkbnb/service/monitor/etc/config.yaml --pprof --pprof.addr 127.0.0.1 --pprof.port 6062 --metrics --metrics.addr 127.0.0.1 --metrics.port 6062
 " > run_monitor.sh
 # remove the fist line if it includes -e
 sed -i '' -e '/-e/,1d' ${DEPLOY_PATH}/zkbnb/service/monitor/etc/config.yaml
@@ -224,7 +223,7 @@ TreeDB:
 " > ${DEPLOY_PATH}/zkbnb/service/committer/etc/config.yaml
 
 echo -e "
-go run ./cmd/zkbnb/main.go committer --config ${DEPLOY_PATH}/zkbnb/service/committer/etc/config.yaml --pprof --pprof.addr 0.0.0.0 --pprof.port 6063 --metrics --metrics.addr 0.0.0.0 --metrics.port 6063
+go run ./cmd/zkbnb/main.go committer --config ${DEPLOY_PATH}/zkbnb/service/committer/etc/config.yaml --pprof --pprof.addr 127.0.0.1 --pprof.port 6063 --metrics --metrics.addr 127.0.0.1 --metrics.port 6063
 " > run_committer.sh
 # remove the fist line if it includes -e
 sed -i '' -e '/-e/,1d' ${DEPLOY_PATH}/zkbnb/service/committer/etc/config.yaml
@@ -261,7 +260,7 @@ TreeDB:
 " > ${DEPLOY_PATH}/zkbnb/service/sender/etc/config.yaml
 
 echo -e "
-go run ./cmd/zkbnb/main.go sender --config ${DEPLOY_PATH}/zkbnb/service/sender/etc/config.yaml --pprof --pprof.addr 0.0.0.0 --pprof.port 6064 --metrics --metrics.addr 0.0.0.0 --metrics.port 6064
+go run ./cmd/zkbnb/main.go sender --config ${DEPLOY_PATH}/zkbnb/service/sender/etc/config.yaml --pprof --pprof.addr 127.0.0.1 --pprof.port 6064 --metrics --metrics.addr 127.0.0.1 --metrics.port 6064
 " > run_sender.sh
 # remove the fist line if it includes -e
 sed -i '' -e '/-e/,1d' ${DEPLOY_PATH}/zkbnb/service/sender/etc/config.yaml
@@ -273,7 +272,7 @@ echo "12. run api-server"
 
 echo -e "
 Name: api-server
-Host: 0.0.0.0
+Host: 127.0.0.1
 Port: 8888
 
 TxPool:
@@ -311,7 +310,7 @@ MemCache:
   " > ${DEPLOY_PATH}/zkbnb/service/apiserver/etc/config.yaml
 
 echo -e "
-go run ./cmd/zkbnb/main.go apiserver --config ${DEPLOY_PATH}/zkbnb/service/apiserver/etc/config.yaml --pprof --pprof.addr 0.0.0.0 --pprof.port 6065 --metrics --metrics.addr 0.0.0.0 --metrics.port 6065
+go run ./cmd/zkbnb/main.go apiserver --config ${DEPLOY_PATH}/zkbnb/service/apiserver/etc/config.yaml --pprof --pprof.addr 127.0.0.1 --pprof.port 6065 --metrics --metrics.addr 127.0.0.1 --metrics.port 6065
 " > run_apiserver.sh
 # remove the fist line if it includes -e
 sed -i '' -e '/-e/,1d' ${DEPLOY_PATH}/zkbnb/service/apiserver/etc/config.yaml
