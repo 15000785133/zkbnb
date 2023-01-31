@@ -392,6 +392,7 @@ func rollbackFunc(configAll Config, bc *BlockChain, accountIndexList []int64, nf
 				continue
 			}
 			nftInfo := &nft.L2Nft{
+				NftIndex:            nftHistory.NftIndex,
 				OwnerAccountIndex:   nftHistory.OwnerAccountIndex,
 				NftContentHash:      nftHistory.NftContentHash,
 				CollectionId:        nftHistory.CollectionId,
