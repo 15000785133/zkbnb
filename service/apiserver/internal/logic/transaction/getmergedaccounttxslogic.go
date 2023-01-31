@@ -81,7 +81,7 @@ func (l *GetMergedAccountTxsLogic) GetMergedAccountTxs(req *types.ReqGetAccountT
 			txsList = l.appendTxsList(txsList, poolTxs)
 			txLimit := int64(req.Limit) - poolTxLimit
 			if txLimit > 0 {
-				txs, err := l.svcCtx.TxModel.GetTxsByAccountIndex(accountIndex, int64(req.Limit), 0, options...)
+				txs, err := l.svcCtx.TxModel.GetTxsByAccountIndex(accountIndex, txLimit, 0, options...)
 				if err != nil && err != types2.DbErrNotFound {
 					return nil, types2.AppErrInternal
 				}
