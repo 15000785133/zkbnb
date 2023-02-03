@@ -2,7 +2,6 @@ package svc
 
 import (
 	"github.com/bnb-chain/zkbnb/dao/rollback"
-	"github.com/prometheus/client_golang/prometheus"
 	"gorm.io/plugin/dbresolver"
 	"time"
 
@@ -23,19 +22,7 @@ import (
 	"github.com/bnb-chain/zkbnb/service/apiserver/internal/fetcher/state"
 )
 
-var (
-	sendTxMetrics = prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: "zkbnb",
-		Name:      "sent_tx_count",
-		Help:      "sent tx count",
-	})
-
-	sendTxTotalMetrics = prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: "zkbnb",
-		Name:      "sent_tx_total_count",
-		Help:      "sent tx total count",
-	})
-)
+var ()
 
 type ServiceContext struct {
 	Config     config.Config
@@ -55,9 +42,6 @@ type ServiceContext struct {
 
 	PriceFetcher price.Fetcher
 	StateFetcher state.Fetcher
-
-	SendTxTotalMetrics prometheus.Counter
-	SendTxMetrics      prometheus.Counter
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -93,16 +77,6 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	memCache := cache.MustNewMemCache(accountModel, assetModel, c.MemCache.AccountExpiration, c.MemCache.BlockExpiration,
 		c.MemCache.TxExpiration, c.MemCache.AssetExpiration, c.MemCache.TxPendingExpiration, c.MemCache.PriceExpiration, c.MemCache.MaxCounterNum, c.MemCache.MaxKeyNum)
 
-	if err := prometheus.Register(sendTxMetrics); err != nil {
-		logx.Error("prometheus.Register sendTxHandlerMetrics error: %v", err)
-		return nil
-	}
-
-	if err := prometheus.Register(sendTxTotalMetrics); err != nil {
-		logx.Error("prometheus.Register sendTxTotalMetrics error: %v", err)
-		return nil
-	}
-
 	return &ServiceContext{
 		Config:              c,
 		RedisCache:          redisCache,
@@ -120,9 +94,6 @@ func NewServiceContext(c config.Config) *ServiceContext {
 
 		PriceFetcher: price.NewFetcher(memCache, assetModel, c.CoinMarketCap.Url, c.CoinMarketCap.Token),
 		StateFetcher: state.NewFetcher(redisCache, accountModel, nftModel),
-
-		SendTxTotalMetrics: sendTxTotalMetrics,
-		SendTxMetrics:      sendTxMetrics,
 	}
 }
 
