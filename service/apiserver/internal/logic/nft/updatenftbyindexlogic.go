@@ -42,7 +42,7 @@ func (l *UpdateNftByIndexLogic) UpdateNftByIndex(req *types.ReqUpdateNft) (resp 
 		NftIndex: req.NftIndex,
 		IpnsName: l2Nft.IpnsName,
 		IpnsId:   l2Nft.IpnsId,
-		Mutable:  req.Mutable,
+		Mutable:  req.MutableAttributes,
 		Status:   nft.NotConfirmed,
 	}
 	err = l.svcCtx.DB.Transaction(func(tx *gorm.DB) error {

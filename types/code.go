@@ -115,6 +115,7 @@ var (
 	AppErrInvalidCollectionId   = New(21700, "invalid collection id")
 	AppErrInvalidCollectionName = New(21701, "invalid collection name")
 	AppErrInvalidIntroduction   = New(21702, "invalid introduction")
+	AppErrNotExistCollectionId  = New(21703, "collection id not exist")
 
 	AppErrInvalidGasAsset = New(25003, "invalid gas asset")
 	AppErrInvalidTxType   = New(25004, "invalid tx type")

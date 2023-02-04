@@ -176,6 +176,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 			{
 				Method:  http.MethodGet,
+				Path:    "/api/v1/maxCollectionId",
+				Handler: nft.GetMaxCollectionIdHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
 				Path:    "/api/v1/accountNfts",
 				Handler: nft.GetAccountNftsHandler(serverCtx),
 			},

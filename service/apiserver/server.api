@@ -426,6 +426,10 @@ type (
 		OfferId uint64 `json:"offer_id"`
 	}
 
+	MaxCollectionId {
+		CollectionId int64 `json:"collection_id"`
+	}
+
 	Nft {
 		Index               int64  `json:"index"`
 		CreatorAccountIndex int64  `json:"creator_account_index"`
@@ -464,6 +468,12 @@ type (
 )
 
 type (
+	ReqGetMaxCollectionId {
+		AccountIndex int64 `form:"account_index"`
+	}
+)
+
+type (
 	ReqGetAccountNfts {
 		By     string `form:"by,options=account_index|account_name|account_pk"`
 		Value  string `form:"value"`
@@ -480,8 +490,8 @@ type (
 
 type (
 	ReqUpdateNft {
-		NftIndex int64  `form:"nft_index"`
-		Mutable  string `form:"mutable"`
+		NftIndex          int64  `form:"nft_index"`
+		MutableAttributes string `form:"mutable_attributes"`
 	}
 )
 
@@ -493,6 +503,10 @@ service server-api {
 	@doc "Get max nft offer id for a specific account"
 	@handler GetMaxOfferId
 	get /api/v1/maxOfferId (ReqGetMaxOfferId) returns (MaxOfferId)
+	
+	@doc "Get max nft collection id for a specific account"
+	@handler GetMaxCollectionId
+	get /api/v1/maxCollectionId (ReqGetMaxCollectionId) returns (MaxCollectionId)
 	
 	@doc "Get nfts of a specific account"
 	@handler GetAccountNfts
