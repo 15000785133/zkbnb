@@ -48,7 +48,7 @@ func CleanAccountName(name string) string {
 }
 
 func SerializeAccountName(a []byte) string {
-	return string(bytes.Trim(a[:], "\x00")) + ".legend"
+	return string(bytes.Trim(a[:], "\x00")) + ".zkbnb"
 }
 
 func GenerateCid(nftContentHash string) string {

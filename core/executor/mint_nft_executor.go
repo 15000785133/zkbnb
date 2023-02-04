@@ -124,6 +124,9 @@ func (e *MintNftExecutor) ApplyTransaction() error {
 		IpfsStatus:          nft.NotConfirmed,
 	})
 	stateCache.SetPendingGas(txInfo.GasFeeAssetId, txInfo.GasFeeAssetAmount)
+	if e.tx.Rollback == false {
+		e.bc.StateDB().UpdateNftIndex(txInfo.NftIndex)
+	}
 	return e.BaseExecutor.ApplyTransaction()
 }
 
