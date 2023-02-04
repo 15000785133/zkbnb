@@ -133,25 +133,6 @@ const (
 )
 
 const (
-	CollectEmpty = iota
-	CollectArt
-	CollectScenery
-	CollectPhotography
-	CollectCartoon
-	CollectGames
-	CollectSports
-	CollectVirtualWorld
-	CollectMystery
-	CollectOthers
-)
-
-const (
-	AttributesProperties = "properties"
-	AttributesLevels     = "levels"
-	AttributesStats      = "stats"
-)
-
-const (
 	AddressSize       = 20
 	EmptyStringKeccak = "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
 )

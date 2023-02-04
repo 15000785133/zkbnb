@@ -3,6 +3,7 @@ package executor
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -56,6 +57,9 @@ func (e *CreateCollectionExecutor) Prepare() error {
 
 func (e *CreateCollectionExecutor) VerifyInputs(skipGasAmtChk, skipSigChk bool) error {
 	txInfo := e.txInfo
+	if err := e.Validate(); err != nil {
+		return err
+	}
 	err := e.BaseExecutor.VerifyInputs(skipGasAmtChk, skipSigChk)
 	if err != nil {
 		return err
@@ -200,4 +204,11 @@ func (e *CreateCollectionExecutor) GenerateTxDetails() ([]*tx.TxDetail, error) {
 		IsGas:        true,
 	})
 	return txDetails, nil
+}
+
+func (e *CreateCollectionExecutor) Validate() error {
+	if len(e.txInfo.MetaData) > 2000 {
+		return fmt.Errorf("MetaData should not be larger than %d", 2000)
+	}
+	return nil
 }
