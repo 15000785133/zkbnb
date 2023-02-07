@@ -292,11 +292,14 @@ func (c *Committer) executeTxFunc() {
 			}
 			metrics.ExecuteTxMetrics.Inc()
 			startApplyTx := time.Now()
+			logx.Infof("start apply pool tx ID: %d", poolTx.ID)
+
 			err = c.bc.ApplyTransaction(poolTx)
 			if c.bc.Statedb.NeedRestoreExecutedTxs() && poolTx.ID >= c.bc.Statedb.MaxPollTxIdRollbackImmutable {
 				c.bc.Statedb.UpdateNeedRestoreExecutedTxs(false)
 			}
 			metrics.ExecuteTxApply1TxMetrics.Set(float64(time.Since(startApplyTx).Milliseconds()))
+
 			if err != nil {
 				logx.Severef("apply pool tx ID: %d failed, err %v ", poolTx.ID, err)
 				if types.IsPriorityOperationTx(poolTx.TxType) {
