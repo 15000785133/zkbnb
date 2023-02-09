@@ -2,7 +2,6 @@ package nft
 
 import (
 	"context"
-	"errors"
 	"github.com/bnb-chain/zkbnb/dao/nft"
 	types2 "github.com/bnb-chain/zkbnb/types"
 	"gorm.io/gorm"
@@ -36,7 +35,10 @@ func (l *UpdateNftByIndexLogic) UpdateNftByIndex(req *types.ReqUpdateNft) (resp 
 		return nil, types2.AppErrInternal
 	}
 	if l2Nft.IpfsStatus == nft.NotConfirmed {
-		return nil, errors.New("please wait for data synchronization to complete")
+		return nil, types2.AppErrInvalidNft
+	}
+	if len(req.MutableAttributes) > 2000 {
+		return nil, types2.AppErrInvalidMutableAttributes.RefineError(2000)
 	}
 	history := &nft.L2NftMetadataHistory{
 		NftIndex: req.NftIndex,

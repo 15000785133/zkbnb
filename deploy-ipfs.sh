@@ -13,8 +13,8 @@ KEY_PATH=~/.zkbnb
 ZkBNB_REPO_PATH=$(cd `dirname $0`; pwd)
 CMC_TOKEN=cfce503f-fake-fake-fake-bbab5257dac8
 NETWORK_RPC_SYS_CONFIG_NAME=LocalTestNetworkRpc # BscTestNetworkRpc or LocalTestNetworkRpc
-BSC_TESTNET_RPC=HTTP://127.0.0.1:8545
-BSC_TESTNET_PRIVATE_KEY=2d92239525b6632b963f49d28411596512fab69052a1738e530a59617e433b81
+BSC_TESTNET_RPC=http://127.0.0.1:8545
+BSC_TESTNET_PRIVATE_KEY=9d71cd2db758816baec8643c0de78f6ce6c5d04be4c8d03a2c1423705ed9ede5
 
 
 export PATH=$PATH:/usr/local/go/bin:/usr/local/go/bin:/root/go/bin
@@ -34,10 +34,10 @@ docker run -d --name zkbnb-postgres -p 5432:5432 \
 echo '1. basic config and git clone repos'
 export PATH=$PATH:/usr/local/go/bin/
 cd ~
-#rm -rf ${DEPLOY_PATH}-bak && mv ${DEPLOY_PATH} ${DEPLOY_PATH}-bak
-#mkdir -p ${DEPLOY_PATH} && cd ${DEPLOY_PATH}
-#git clone --branch testnet  https://github.com/bnb-chain/zkbnb-contract.git
-#git clone --branch ipfs https://github.com/15000785133/zkbnb-crypto.git
+rm -rf ${DEPLOY_PATH}-bak && mv ${DEPLOY_PATH} ${DEPLOY_PATH}-bak
+mkdir -p ${DEPLOY_PATH} && cd ${DEPLOY_PATH}
+git clone --branch testnet  https://github.com/bnb-chain/zkbnb-contract.git
+git clone --branch ipfs https://github.com/15000785133/zkbnb-crypto.git
 cp -r ${ZkBNB_REPO_PATH} ${DEPLOY_PATH}
 
 

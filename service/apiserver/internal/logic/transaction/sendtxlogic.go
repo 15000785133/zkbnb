@@ -193,7 +193,7 @@ func sendToIpfs(txInfo *txtypes.MintNftTxInfo, txHash string) (string, error) {
 	}
 	cid, err := uploadIpfs(&nftModels.NftMetaData{
 		MetaData:          txInfo.MetaData,
-		MutableAttributes: fmt.Sprintf("%s%s", "https://ipfs.io/ipns/", ipnsId.Id),
+		MutableAttributes: fmt.Sprintf("%s%s", "ipns://", ipnsId.Id),
 	})
 	if err != nil {
 		return "", err

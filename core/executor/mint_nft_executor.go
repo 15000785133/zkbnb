@@ -3,7 +3,6 @@ package executor
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -277,10 +276,10 @@ func (e *MintNftExecutor) GenerateTxDetails() ([]*tx.TxDetail, error) {
 
 func (e *MintNftExecutor) Validate() error {
 	if len(e.txInfo.MetaData) > 2000 {
-		return fmt.Errorf("MetaData should not be larger than %d", 2000)
+		return types.AppErrInvalidMetaData.RefineError(2000)
 	}
 	if len(e.txInfo.MutableAttributes) > 2000 {
-		return fmt.Errorf("MutableAttributes should not be larger than %d", 2000)
+		return types.AppErrInvalidMutableAttributes.RefineError(2000)
 	}
 	return nil
 }

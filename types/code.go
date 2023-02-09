@@ -104,12 +104,15 @@ var (
 	AppErrInvalidAssetOfOffer        = New(21513, "invalid asset of offer")
 
 	// Nft
-	AppErrNftAlreadyExist       = New(21600, "invalid nft index, already exist")
-	AppErrInvalidNftContenthash = New(21601, "invalid nft content hash")
-	AppErrNotNftOwner           = New(21602, "account is not owner of the nft")
-	AppErrInvalidNftIndex       = New(21603, "invalid nft index")
-	AppErrNftNotFound           = New(21604, "nft not found")
-	AppErrInvalidToAccount      = New(21605, "invalid ToAccount")
+	AppErrNftAlreadyExist          = New(21600, "invalid nft index, already exist")
+	AppErrInvalidNftContenthash    = New(21601, "invalid nft content hash")
+	AppErrNotNftOwner              = New(21602, "account is not owner of the nft")
+	AppErrInvalidNftIndex          = New(21603, "invalid nft index")
+	AppErrNftNotFound              = New(21604, "nft not found")
+	AppErrInvalidToAccount         = New(21605, "invalid ToAccount")
+	AppErrInvalidNft               = New(21606, "please wait for data synchronization to complete")
+	AppErrInvalidMetaData          = New(21607, "MetaData should not be larger than ")
+	AppErrInvalidMutableAttributes = New(21608, "MutableAttributes should not be larger than ")
 
 	// Collection
 	AppErrInvalidCollectionId   = New(21700, "invalid collection id")
