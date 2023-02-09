@@ -15,7 +15,12 @@ CMC_TOKEN=cfce503f-fake-fake-fake-bbab5257dac8
 NETWORK_RPC_SYS_CONFIG_NAME=LocalTestNetworkRpc # BscTestNetworkRpc or LocalTestNetworkRpc
 BSC_TESTNET_RPC=http://127.0.0.1:8545
 BSC_TESTNET_PRIVATE_KEY=9d71cd2db758816baec8643c0de78f6ce6c5d04be4c8d03a2c1423705ed9ede5
-
+# security Council Members for upgrade approve
+# FOR TEST
+# generage by Mnemonic (account #17 ~ #19): giggle federal note disorder will close traffic air melody artefact taxi tissue
+SECURITY_COUNCIL_MEMBERS_NUMBER_1=0x0000000000000000000000000000000000000000
+SECURITY_COUNCIL_MEMBERS_NUMBER_2=0x0000000000000000000000000000000000000000
+SECURITY_COUNCIL_MEMBERS_NUMBER_3=0x0000000000000000000000000000000000000000
 
 export PATH=$PATH:/usr/local/go/bin:/usr/local/go/bin:/root/go/bin
 echo '0. stop old database/redis and docker run new database/redis'
@@ -23,7 +28,6 @@ pm2 delete all
 ZKBNB_CONTAINERS=$(docker ps -a |grep zkbnb|awk '{print $1}')
 [[ -z "${ZKBNB_CONTAINERS}" ]] || docker rm -f ${ZKBNB_CONTAINERS}
 docker run -d --name zkbnb-redis -p 6379:6379 redis
-docker run -d --name zkbnb-kvrocks -p 6666:6666 apache/kvrocks
 docker run -d --name zkbnb-postgres -p 5432:5432 \
   -e PGDATA=/var/lib/postgresql/pgdata  \
   -e POSTGRES_PASSWORD=ZkBNB@123 \
@@ -73,6 +77,9 @@ cd ./zkbnb-contract
 cp -r .env.example .env
 sed -i -e "s~BSC_TESTNET_RPC=.*~BSC_TESTNET_RPC=${BSC_TESTNET_RPC}~" .env
 sed -i -e "s/BSC_TESTNET_PRIVATE_KEY=.*/BSC_TESTNET_PRIVATE_KEY=${BSC_TESTNET_PRIVATE_KEY}/" .env
+sed -i -e "s/SECURITY_COUNCIL_MEMBERS_NUMBER_1=.*/SECURITY_COUNCIL_MEMBERS_NUMBER_1=${SECURITY_COUNCIL_MEMBERS_NUMBER_1}/" .env
+sed -i -e "s/SECURITY_COUNCIL_MEMBERS_NUMBER_2=.*/SECURITY_COUNCIL_MEMBERS_NUMBER_2=${SECURITY_COUNCIL_MEMBERS_NUMBER_2}/" .env
+sed -i -e "s/SECURITY_COUNCIL_MEMBERS_NUMBER_3=.*/SECURITY_COUNCIL_MEMBERS_NUMBER_3=${SECURITY_COUNCIL_MEMBERS_NUMBER_3}/" .env
 yarn install
 npx hardhat --network BSCTestnet run ./scripts/deploy-keccak256/deploy.js
 echo 'Recorded latest contract addresses into ${DEPLOY_PATH}/zkbnb-contract/info/addresses.json'
@@ -153,19 +160,8 @@ CacheRedis:
     Type: node
 
 TreeDB:
-  Driver: redis
-  RedisDBOption:
-    Addr: 127.0.0.1:6666
-    DialTimeout: 10s
-    ReadTimeout: 10s
-    WriteTimeout: 10s
-    PoolTimeout: 15s
-    IdleTimeout: 5m
-    PoolSize: 500
-    MaxRetries: 3
-    MinRetryBackoff: 8ms
-    MaxRetryBackoff: 512ms
-  AssetTreeCacheSize: 100000000
+  Driver: memorydb
+  AssetTreeCacheSize: 512000
 " > ${DEPLOY_PATH}/zkbnb/service/witness/etc/config.yaml
 
 echo -e "
@@ -232,19 +228,8 @@ IpfsUrl:
   10.23.23.40:5001
 
 TreeDB:
-  Driver: redis
-  RedisDBOption:
-    Addr: 127.0.0.1:6666
-    DialTimeout: 10s
-    ReadTimeout: 10s
-    WriteTimeout: 10s
-    PoolTimeout: 15s
-    IdleTimeout: 5m
-    PoolSize: 500
-    MaxRetries: 3
-    MinRetryBackoff: 8ms
-    MaxRetryBackoff: 512ms
-  AssetTreeCacheSize: 100000000
+  Driver: memorydb
+  AssetTreeCacheSize: 512000
 " > ${DEPLOY_PATH}/zkbnb/service/committer/etc/config.yaml
 
 echo -e "
