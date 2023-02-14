@@ -3,8 +3,10 @@ package nft
 import (
 	"context"
 	"github.com/bnb-chain/zkbnb/dao/nft"
+	"github.com/bnb-chain/zkbnb/service/apiserver/internal/signature"
 	types2 "github.com/bnb-chain/zkbnb/types"
 	"gorm.io/gorm"
+	"strconv"
 
 	"github.com/bnb-chain/zkbnb/service/apiserver/internal/svc"
 	"github.com/bnb-chain/zkbnb/service/apiserver/internal/types"
@@ -14,19 +16,26 @@ import (
 
 type UpdateNftByIndexLogic struct {
 	logx.Logger
-	ctx    context.Context
-	svcCtx *svc.ServiceContext
+	ctx             context.Context
+	svcCtx          *svc.ServiceContext
+	verifySignature *signature.VerifySignature
 }
 
 func NewUpdateNftByIndexLogic(ctx context.Context, svcCtx *svc.ServiceContext) *UpdateNftByIndexLogic {
+	verifySignature := signature.NewVerifySignature(ctx, svcCtx)
 	return &UpdateNftByIndexLogic{
-		Logger: logx.WithContext(ctx),
-		ctx:    ctx,
-		svcCtx: svcCtx,
+		Logger:          logx.WithContext(ctx),
+		ctx:             ctx,
+		svcCtx:          svcCtx,
+		verifySignature: verifySignature,
 	}
 }
 
 func (l *UpdateNftByIndexLogic) UpdateNftByIndex(req *types.ReqUpdateNft) (resp *types.History, err error) {
+	err = l.verifySignature.VerifySignatureInfo(types2.TxTypeEmpty, strconv.FormatInt(req.AccountIndex, 10), req.TxSignature)
+	if err != nil {
+		return nil, err
+	}
 	l2Nft, err := l.svcCtx.NftModel.GetNft(req.NftIndex)
 	if err != nil {
 		if err == types2.DbErrNotFound {

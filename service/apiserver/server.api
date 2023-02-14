@@ -496,6 +496,8 @@ type (
 	ReqUpdateNft {
 		NftIndex          int64  `form:"nft_index"`
 		MutableAttributes string `form:"mutable_attributes"`
+		AccountIndex      int64  `form:"account_index"`
+		TxSignature       string `form:"tx_signature"`
 	}
 )
 
