@@ -43,6 +43,9 @@ func (l *UpdateNftByIndexLogic) UpdateNftByIndex(req *types.ReqUpdateNft) (resp 
 		}
 		return nil, types2.AppErrInternal
 	}
+	if req.AccountIndex != l2Nft.OwnerAccountIndex {
+		return nil, types2.AppErrNotNftOwner
+	}
 	if l2Nft.IpfsStatus == nft.NotConfirmed {
 		return nil, types2.AppErrInvalidNft
 	}
