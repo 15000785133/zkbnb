@@ -176,15 +176,7 @@ func (c *Committer) pullPoolTxs() {
 		}
 		executedTxMaxId = c.bc.Statedb.MaxPollTxIdRollbackImmutable
 		metrics.GetPendingTxsToQueueMetric.Set(float64(len(pendingTxs)))
-		notRestoreTxs := make([]*tx.Tx, 0)
 		for _, poolTx := range pendingTxs {
-			if poolTx.Rollback == false {
-				notRestoreTxs = append(notRestoreTxs, poolTx)
-				continue
-			}
-			c.executeTxWorker.Enqueue(poolTx)
-		}
-		for _, poolTx := range notRestoreTxs {
 			c.executeTxWorker.Enqueue(poolTx)
 		}
 	}
@@ -242,7 +234,7 @@ func (c *Committer) getPoolTxsFromQueue() []*tx.Tx {
 }
 
 func (c *Committer) executeTxFunc() {
-	latestRequestId, err := c.getLatestExecutedRequestId()
+	l1LatestRequestId, err := c.getLatestExecutedRequestId()
 	if err != nil {
 		logx.Errorf("get latest executed request id failed:%s", err.Error())
 		panic("get latest executed request id failed: " + err.Error())
@@ -290,9 +282,17 @@ func (c *Committer) executeTxFunc() {
 			}
 			metrics.ExecuteTxMetrics.Inc()
 			startApplyTx := time.Now()
+			logx.Infof("start apply pool tx ID: %d", poolTx.ID)
 			err = c.bc.ApplyTransaction(poolTx)
 			if c.bc.Statedb.NeedRestoreExecutedTxs() && poolTx.ID >= c.bc.Statedb.MaxPollTxIdRollbackImmutable {
+				logx.Infof("update needRestoreExecutedTxs to false,blockHeight:%d", curBlock.BlockHeight)
 				c.bc.Statedb.UpdateNeedRestoreExecutedTxs(false)
+				err := c.bc.DB().BlockModel.DeleteBlockGreaterThanHeight(curBlock.BlockHeight, []int{block.StatusProposing, block.StatusPacked})
+				if err != nil {
+					logx.Errorf("DeleteBlockGreaterThanHeight failed:%s,blockHeight:%d", err.Error(), curBlock.BlockHeight)
+					panic("DeleteBlockGreaterThanHeight failed: " + err.Error())
+				}
+				c.bc.ClearRollbackBlockMap()
 			}
 			metrics.ExecuteTxApply1TxMetrics.Set(float64(time.Since(startApplyTx).Milliseconds()))
 			if err != nil {
@@ -316,20 +316,12 @@ func (c *Committer) executeTxFunc() {
 			}
 
 			if types.IsPriorityOperationTx(poolTx.TxType) {
-				request, err := c.bc.PriorityRequestModel.GetPriorityRequestsByL2TxHash(poolTx.TxHash)
-				if err == nil {
-					metrics.PriorityOperationMetric.Set(float64(request.RequestId))
-					metrics.PriorityOperationHeightMetric.Set(float64(request.L1BlockHeight))
-					//todo get requestId from pool tx
-					if latestRequestId != -1 && request.RequestId != latestRequestId+1 {
-						logx.Severef("invalid request id=%s,txHash=%s", strconv.Itoa(int(request.RequestId)), err.Error())
-						panic("invalid request id=" + strconv.Itoa(int(request.RequestId)) + ",txHash=" + poolTx.TxHash)
-					}
-					latestRequestId = request.RequestId
-				} else {
-					logx.Severef("query txHash from priority request txHash=%s,error=%s", poolTx.TxHash, err.Error())
-					panic("query txHash from priority request txHash=" + poolTx.TxHash + ",error=" + err.Error())
+				metrics.PriorityOperationMetric.Set(float64(poolTx.L1RequestId))
+				if l1LatestRequestId != -1 && poolTx.L1RequestId != l1LatestRequestId+1 {
+					logx.Severef("invalid request id=%s,txHash=%s", strconv.Itoa(int(poolTx.L1RequestId)), err.Error())
+					panic("invalid request id=" + strconv.Itoa(int(poolTx.L1RequestId)) + ",txHash=" + poolTx.TxHash)
 				}
+				l1LatestRequestId = poolTx.L1RequestId
 			}
 
 			// Write the proposed block into database when the first transaction executed.
@@ -1095,14 +1087,7 @@ func (c *Committer) getLatestExecutedRequestId() (int64, error) {
 	} else if err == types.DbErrNotFound {
 		return -1, nil
 	}
-
-	p, err := c.bc.PriorityRequestModel.GetPriorityRequestsByL2TxHash(latestTx.TxHash)
-	if err != nil {
-		logx.Errorf("get priority request by txhash: %s failed: %v", latestTx.TxHash, err)
-		return -1, err
-	}
-
-	return p.RequestId, nil
+	return latestTx.L1RequestId, nil
 }
 
 func (c *Committer) loadAllAccounts() {
