@@ -51,3 +51,7 @@ func MetricsHandler(next http.HandlerFunc) http.HandlerFunc {
 		next(writer, request)
 	}
 }
+
+func SendTxMetricsInc() {
+	metricsContext.SendTxMetrics.Inc()
+}
