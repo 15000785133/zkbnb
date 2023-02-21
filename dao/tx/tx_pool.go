@@ -37,7 +37,10 @@ type (
 		GetTxs(limit int64, offset int64, options ...GetTxOptionFunc) (txs []*Tx, err error)
 		GetTxsTotalCount(options ...GetTxOptionFunc) (count int64, err error)
 		GetTxByTxHash(hash string) (txs *Tx, err error)
+		GetTxUnscopedByTxHash(hash string) (txs *Tx, err error)
 		GetTxsByStatus(status int) (txs []*Tx, err error)
+		GetTxsByAccountIndex(accountIndex int64, limit int64, offset int64, options ...GetTxOptionFunc) (txs []*Tx, err error)
+		GetTxsCountByAccountIndex(accountIndex int64, options ...GetTxOptionFunc) (count int64, err error)
 		GetTxsByStatusAndMaxId(status int, maxId uint, limit int64) (txs []*Tx, err error)
 		GetTxsByStatusAndIdRange(status int, fromId uint, toId uint) (txs []*Tx, err error)
 		GetTxsByStatusAndCreateTime(status int, fromCreatedAt time.Time, toId uint) (txs []*Tx, err error)
@@ -73,6 +76,8 @@ type (
 	PoolTx struct {
 		BaseTx
 		Rollback bool
+		// l1 request id
+		L1RequestId int64
 	}
 
 	BaseTx struct {
@@ -187,7 +192,7 @@ func (m *defaultTxPoolModel) GetTxsByStatusAndMaxId(status int, maxId uint, limi
 		return nil, types.DbErrSqlOperation
 	}
 	for _, poolTx := range poolTxs {
-		txs = append(txs, &Tx{BaseTx: poolTx.BaseTx, Rollback: poolTx.Rollback})
+		txs = append(txs, &Tx{BaseTx: poolTx.BaseTx, Rollback: poolTx.Rollback, L1RequestId: poolTx.L1RequestId})
 	}
 	return txs, nil
 }
@@ -199,7 +204,7 @@ func (m *defaultTxPoolModel) GetTxsByStatusAndIdRange(status int, fromId uint, t
 		return nil, types.DbErrSqlOperation
 	}
 	for _, poolTx := range poolTxs {
-		txs = append(txs, &Tx{BaseTx: poolTx.BaseTx, Rollback: poolTx.Rollback})
+		txs = append(txs, &Tx{BaseTx: poolTx.BaseTx, Rollback: poolTx.Rollback, L1RequestId: poolTx.L1RequestId})
 	}
 	return txs, nil
 }
@@ -254,6 +259,56 @@ func (m *defaultTxPoolModel) GetTxByTxHash(hash string) (tx *Tx, err error) {
 		return nil, types.DbErrNotFound
 	}
 	return tx, nil
+}
+
+func (m *defaultTxPoolModel) GetTxUnscopedByTxHash(hash string) (tx *Tx, err error) {
+	dbTx := m.DB.Unscoped().Table(m.table).Where("tx_hash = ?", hash).Find(&tx)
+	if dbTx.Error != nil {
+		return nil, types.DbErrSqlOperation
+	} else if dbTx.RowsAffected == 0 {
+		return nil, types.DbErrNotFound
+	}
+	return tx, nil
+}
+
+func (m *defaultTxPoolModel) GetTxsByAccountIndex(accountIndex int64, limit int64, offset int64, options ...GetTxOptionFunc) (txs []*Tx, err error) {
+	opt := &getTxOption{}
+	for _, f := range options {
+		f(opt)
+	}
+
+	dbTx := m.DB.Table(m.table).Where("account_index = ? and deleted_at is null", accountIndex)
+	if len(opt.Types) > 0 {
+		dbTx = dbTx.Where("tx_type IN ?", opt.Types)
+	}
+
+	dbTx = dbTx.Limit(int(limit)).Offset(int(offset)).Order("created_at desc").Find(&txs)
+	if dbTx.Error != nil {
+		return nil, types.DbErrSqlOperation
+	} else if dbTx.RowsAffected == 0 {
+		return nil, types.DbErrNotFound
+	}
+	return txs, nil
+}
+
+func (m *defaultTxPoolModel) GetTxsCountByAccountIndex(accountIndex int64, options ...GetTxOptionFunc) (count int64, err error) {
+	opt := &getTxOption{}
+	for _, f := range options {
+		f(opt)
+	}
+
+	dbTx := m.DB.Table(m.table).Where("account_index = ? and deleted_at is null", accountIndex)
+	if len(opt.Types) > 0 {
+		dbTx = dbTx.Where("tx_type IN ?", opt.Types)
+	}
+
+	dbTx = dbTx.Count(&count)
+	if dbTx.Error != nil {
+		return 0, types.DbErrSqlOperation
+	} else if dbTx.RowsAffected == 0 {
+		return 0, nil
+	}
+	return count, nil
 }
 
 func (m *defaultTxPoolModel) CreateTxs(txs []*PoolTx) error {
@@ -431,14 +486,14 @@ func (m *defaultTxPoolModel) DeleteTxsBatch(poolTxIds []uint, status int, blockH
 }
 
 func (m *defaultTxPoolModel) GetLatestTx(txTypes []int64, statuses []int) (tx *Tx, err error) {
-
-	dbTx := m.DB.Table(m.table).Where("tx_status IN ? AND tx_type IN ?", statuses, txTypes).Order("id DESC").Limit(1).Find(&tx)
+	var poolTx *PoolTx
+	dbTx := m.DB.Table(m.table).Where("tx_status IN ? AND tx_type IN ?", statuses, txTypes).Order("id DESC").Limit(1).Find(&poolTx)
 	if dbTx.Error != nil {
 		return nil, types.DbErrSqlOperation
 	} else if dbTx.RowsAffected == 0 {
 		return nil, types.DbErrNotFound
 	}
-
+	tx = &Tx{BaseTx: poolTx.BaseTx, Rollback: poolTx.Rollback, L1RequestId: poolTx.L1RequestId}
 	return tx, nil
 }
 

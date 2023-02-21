@@ -131,6 +131,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 			{
 				Method:  http.MethodGet,
+				Path:    "/api/v1/mergedAccountTxs",
+				Handler: transaction.GetMergedAccountTxsHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
 				Path:    "/api/v1/tx",
 				Handler: transaction.GetTxHandler(serverCtx),
 			},
@@ -176,8 +181,28 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 			{
 				Method:  http.MethodGet,
+				Path:    "/api/v1/maxCollectionId",
+				Handler: nft.GetMaxCollectionIdHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
 				Path:    "/api/v1/accountNfts",
 				Handler: nft.GetAccountNftsHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/api/v1/getNftByTxHash",
+				Handler: nft.GetNftByTxHashHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/api/v1/updateNftByIndex",
+				Handler: nft.UpdateNftByIndexHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/api/v1/nftNextNonce",
+				Handler: nft.GetNftNextNonceHandler(serverCtx),
 			},
 		},
 	)
