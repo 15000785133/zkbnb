@@ -1,6 +1,7 @@
 package transaction
 
 import (
+	"github.com/bnb-chain/zkbnb/service/apiserver/internal/metrics"
 	"net/http"
 
 	"github.com/zeromicro/go-zero/rest/httpx"
@@ -23,7 +24,7 @@ func SendTxHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		if err != nil {
 			httpx.Error(w, err)
 		} else {
-			svcCtx.SendTxMetrics.Inc()
+			metrics.SendTxMetricsInc()
 			httpx.OkJson(w, resp)
 		}
 	}

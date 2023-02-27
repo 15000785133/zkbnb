@@ -3,8 +3,8 @@ package apiserver
 import (
 	"github.com/bnb-chain/zkbnb/dao/tx"
 	"github.com/bnb-chain/zkbnb/service/apiserver/internal/logic/info"
+	"github.com/bnb-chain/zkbnb/service/apiserver/internal/metrics"
 	"github.com/robfig/cron/v3"
-	"net/http"
 	"time"
 
 	"github.com/zeromicro/go-zero/core/conf"
@@ -77,17 +77,13 @@ func Run(configFile string) error {
 		}
 	})
 
+	// Initiate the metrics context
+	metrics.InitMetricsContext()
+
 	server := rest.MustNewServer(c.RestConf, rest.WithCors())
 
-	// 全局中间件
-	server.Use(func(next http.HandlerFunc) http.HandlerFunc {
-		return func(writer http.ResponseWriter, request *http.Request) {
-			if request.RequestURI == "/api/v1/sendTx" {
-				ctx.SendTxTotalMetrics.Inc()
-			}
-			next(writer, request)
-		}
-	})
+	// Add the request metrics handler
+	server.Use(metrics.MetricsHandler)
 
 	handler.RegisterHandlers(server, ctx)
 
