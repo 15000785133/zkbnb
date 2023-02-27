@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
+	"sort"
 	"time"
 
 	"github.com/consensys/gnark/backend/groth16"
@@ -123,6 +124,7 @@ func NewProver(c config.Config) (*Prover, error) {
 	}
 
 	prover.OptionalBlockSizes = c.BlockConfig.OptionalBlockSizes
+	sort.Ints(prover.OptionalBlockSizes)
 	prover.ProvingKeys = make([][]groth16.ProvingKey, len(prover.OptionalBlockSizes))
 	prover.VerifyingKeys = make([]groth16.VerifyingKey, len(prover.OptionalBlockSizes))
 	prover.R1cs = make([]frontend.CompiledConstraintSystem, len(prover.OptionalBlockSizes))
@@ -163,7 +165,7 @@ func NewProver(c config.Config) (*Prover, error) {
 		prover.SessionNames[i] = c.KeyPath[i]
 	}
 
-	w, err := prover.BlockWitnessModel.GetLatestReceivedBlockWitness()
+	w, err := prover.BlockWitnessModel.GetLatestReceivedBlockWitness(ConvertIntArrToStringArr(prover.OptionalBlockSizes))
 	var wHeight int64
 	if err != nil {
 		if err == types.DbErrNotFound {
@@ -202,6 +204,7 @@ func NewProver(c config.Config) (*Prover, error) {
 
 func (p *Prover) ProveBlock() error {
 	blockWitness, err := func() (*blockwitness.BlockWitness, error) {
+		//TODO: obtain lock only for witness blocks with specific size
 		lock := redislock.GetRedisLockByKey(p.RedisConn, RedisLockKey)
 		err := redislock.TryAcquireLock(lock)
 		if err != nil {
@@ -211,7 +214,7 @@ func (p *Prover) ProveBlock() error {
 		defer lock.Release()
 
 		// Fetch unproved block witness.
-		blockWitness, err := p.BlockWitnessModel.GetLatestBlockWitness()
+		blockWitness, err := p.BlockWitnessModel.GetLatestBlockWitness(ConvertIntArrToStringArr(p.OptionalBlockSizes))
 		if err != nil {
 			return nil, err
 		}

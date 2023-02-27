@@ -19,7 +19,6 @@ package blockwitness
 
 import (
 	"fmt"
-
 	"gorm.io/gorm"
 
 	"github.com/bnb-chain/zkbnb/types"
@@ -41,8 +40,8 @@ type (
 		GetLatestBlockWitnessHeight() (height int64, err error)
 		GetBlockWitnessByHeight(height int64) (witness *BlockWitness, err error)
 		UpdateBlockWitnessStatus(witness *BlockWitness, status int64) error
-		GetLatestBlockWitness() (witness *BlockWitness, err error)
-		GetLatestReceivedBlockWitness() (witness *BlockWitness, err error)
+		GetLatestBlockWitness(blockSizes []string) (witness *BlockWitness, err error)
+		GetLatestReceivedBlockWitness(blockSizes []string) (witness *BlockWitness, err error)
 		CreateBlockWitness(witness *BlockWitness) error
 		UpdateBlockWitnessStatusByHeight(height int64) error
 	}
@@ -56,6 +55,7 @@ type (
 		gorm.Model
 		Height      int64 `gorm:"index:idx_height,unique"`
 		WitnessData string
+		BlockSize   uint16
 		Status      int64 `gorm:"index"`
 	}
 )
@@ -90,8 +90,8 @@ func (m *defaultBlockWitnessModel) GetLatestBlockWitnessHeight() (blockNumber in
 	return row.Height, nil
 }
 
-func (m *defaultBlockWitnessModel) GetLatestBlockWitness() (witness *BlockWitness, err error) {
-	dbTx := m.DB.Table(m.table).Where("status = ?", StatusPublished).Order("height asc").Limit(1).Find(&witness)
+func (m *defaultBlockWitnessModel) GetLatestBlockWitness(blockSizes []string) (witness *BlockWitness, err error) {
+	dbTx := m.DB.Table(m.table).Where("status = ? AND block_size IN ?", StatusPublished, blockSizes).Order("height asc").Limit(1).Find(&witness)
 	if dbTx.Error != nil {
 		return nil, types.DbErrSqlOperation
 	} else if dbTx.RowsAffected == 0 {
@@ -100,8 +100,8 @@ func (m *defaultBlockWitnessModel) GetLatestBlockWitness() (witness *BlockWitnes
 	return witness, nil
 }
 
-func (m *defaultBlockWitnessModel) GetLatestReceivedBlockWitness() (witness *BlockWitness, err error) {
-	dbTx := m.DB.Table(m.table).Where("status = ?", StatusReceived).Order("height desc").Limit(1).Find(&witness)
+func (m *defaultBlockWitnessModel) GetLatestReceivedBlockWitness(blockSizes []string) (witness *BlockWitness, err error) {
+	dbTx := m.DB.Table(m.table).Where("status = ? AND block_size IN ?", StatusReceived, blockSizes).Order("height desc").Limit(1).Find(&witness)
 	if dbTx.Error != nil {
 		return nil, types.DbErrSqlOperation
 	} else if dbTx.RowsAffected == 0 {
