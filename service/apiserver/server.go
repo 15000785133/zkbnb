@@ -2,6 +2,7 @@ package apiserver
 
 import (
 	"github.com/bnb-chain/zkbnb/dao/tx"
+	"github.com/bnb-chain/zkbnb/service/apiserver/internal/flowctrl"
 	"github.com/bnb-chain/zkbnb/service/apiserver/internal/logic/info"
 	"github.com/bnb-chain/zkbnb/service/apiserver/internal/ratelimiter"
 	"github.com/robfig/cron/v3"
@@ -96,6 +97,9 @@ func Run(configFile string) error {
 
 	// Add the rate limit control handler
 	server.Use(ratelimiter.RateLimitHandler)
+
+	// Add the flow control handler
+	server.Use(flowctrl.FlowControlHandler)
 
 	// Register the server and the context
 	handler.RegisterHandlers(server, ctx)
