@@ -5,6 +5,8 @@ const (
 	ControlTypeBlackList = "ControlledByBlacklist"
 )
 
+var flowControlConfig *FlowControlConfig
+
 type FLowControlConfigItem struct {
 	FlowControlType  string
 	WhiteListAddress []string
@@ -18,7 +20,7 @@ type FlowControlConfig struct {
 
 func UpdateFlowControlConfig(key string, content string) (*FlowControlConfig, error) {
 
-	flowControlConfig := &FlowControlConfig{}
+	flowControlConfig = &FlowControlConfig{}
 
 	if err := flowControlConfig.ValidateFlowControlConfig(); err != nil {
 		return nil, err

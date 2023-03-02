@@ -98,6 +98,10 @@ func Run(configFile string) error {
 	// Add the rate limit control handler
 	server.Use(ratelimiter.RateLimitHandler)
 
+	// Initiate the flow control facility
+	// configuration from the config file
+	flowctrl.InitFlowControlConfiguration(c)
+
 	// Add the flow control handler
 	server.Use(flowctrl.FlowControlHandler)
 
