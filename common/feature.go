@@ -19,11 +19,16 @@ package common
 
 import (
 	"github.com/zeromicro/go-zero/core/logx"
+	"strings"
 	"time"
 )
 
 func Test(feature string, functionNameConfig string, functionName string) {
-	if functionNameConfig != functionName {
+	if functionNameConfig == "" {
+		return
+	}
+
+	if !strings.Contains(functionNameConfig+",", functionName+",") {
 		return
 	}
 	if time.Now().UnixMilli()%2 == 0 {
