@@ -13,17 +13,19 @@ KEY_PATH=~/.zkbnb
 ZkBNB_REPO_PATH=$(cd `dirname $0`; pwd)
 CMC_TOKEN=cfce503f-fake-fake-fake-bbab5257dac8
 NETWORK_RPC_SYS_CONFIG_NAME=LocalTestNetworkRpc # BscTestNetworkRpc or LocalTestNetworkRpc
-BSC_TESTNET_RPC=http://127.0.0.1:8545
-BSC_TESTNET_PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-COMMIT_BLOCK_PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-VERIFY_BLOCK_PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+BSC_TESTNET_RPC=HTTP://127.0.0.1:8545
+BSC_TESTNET_PRIVATE_KEY=2d92239525b6632b963f49d28411596512fab69052a1738e530a59617e433b81
+#use COMMIT_BLOCK_PRIVATE_KEY for submitting commit_block to bnb contract in sender application
+#use VERIFY_BLOCK_PRIVATE_KEY for submitting verify_block to bnb contract in sender application
+COMMIT_BLOCK_PRIVATE_KEY=
+VERIFY_BLOCK_PRIVATE_KEY=
 # security Council Members for upgrade approve
 # FOR TEST
 # generage by Mnemonic (account #17 ~ #19): giggle federal note disorder will close traffic air melody artefact taxi tissue
 SECURITY_COUNCIL_MEMBERS_NUMBER_1=0x0000000000000000000000000000000000000000
 SECURITY_COUNCIL_MEMBERS_NUMBER_2=0x0000000000000000000000000000000000000000
 SECURITY_COUNCIL_MEMBERS_NUMBER_3=0x0000000000000000000000000000000000000000
-# validator config, split by `,` commit block address  and verify block address
+# validator config, split by `,` the address of COMMIT_BLOCK_PRIVATE_KEY  and the address of VERIFY_BLOCK_PRIVATE_KEY,
 VALIDATORS=
 ZKBNB_ALL_OPTIONAL_BLOCK_SIZES=2,4,8
 ZKBNB_PROVER_OPTIONAL_BLOCK_SIZES=2
@@ -39,6 +41,7 @@ docker run -d --name zkbnb-postgres -p 5432:5432 \
   -e POSTGRES_PASSWORD=ZkBNB@123 \
   -e POSTGRES_USER=postgres \
   -e POSTGRES_DB=zkbnb postgres
+
 
 echo '1. basic config and git clone repos'
 export PATH=$PATH:/usr/local/go/bin/
@@ -61,6 +64,8 @@ if [ $flag = "new" ]; then
   cp -r ./zkbnb-crypto/circuit/solidity/* $KEY_PATH
 fi
 
+
+
 echo '3. start verify_parse for ZkBNBVerifier'
 cd ${DEPLOY_PATH}/zkbnb/service/prover/
 contracts=()
@@ -74,9 +79,11 @@ VERIFIER_CONTRACTS=$(echo "${contracts[*]}" | tr ' ' ',')
 python3 verifier_parse.py ${VERIFIER_CONTRACTS} ${ZKBNB_ALL_OPTIONAL_BLOCK_SIZES} ${DEPLOY_PATH}/zkbnb-contract/contracts/ZkBNBVerifier.sol
 
 echo '4-1. get latest block number'
-hexNumber=$(curl -X POST ${BSC_TESTNET_RPC} --header 'Content-Type: application/json' --data-raw '{"jsonrpc":"2.0", "method":"eth_blockNumber", "params": [], "id":1 }' | jq -r '.result')
-blockNumber=$(echo $((${hexNumber})))
+hexNumber=`curl -X POST ${BSC_TESTNET_RPC} --header 'Content-Type: application/json' --data-raw '{"jsonrpc":"2.0", "method":"eth_blockNumber", "params": [], "id":1 }' | jq -r '.result'`
+blockNumber=`echo $((${hexNumber}))`
 echo 'latest block number = ' $blockNumber
+
+
 
 echo '4-2. deploy contracts, register and deposit on BSC Testnet'
 cd ${DEPLOY_PATH}
@@ -95,21 +102,25 @@ echo 'Recorded latest contract addresses into ${DEPLOY_PATH}/zkbnb-contract/info
 npx hardhat --network BSCTestnet run ./scripts/deploy-keccak256/register.js
 npx hardhat --network BSCTestnet run ./scripts/deploy-keccak256/deposit.js
 
+
 echo '5. modify deployed contracts into zkbnb config'
 cd ${DEPLOY_PATH}/zkbnb/tools/dbinitializer/
 cp -r ./contractaddr.yaml.example ./contractaddr.yaml
 
-ZkBNBContractAddr=$(cat ${DEPLOY_PATH}/zkbnb-contract/info/addresses.json | jq -r '.zkbnbProxy')
+ZkBNBContractAddr=`cat ${DEPLOY_PATH}/zkbnb-contract/info/addresses.json  | jq -r '.zkbnbProxy'`
 sed -i -e "s/ZkBNBProxy: .*/ZkBNBProxy: ${ZkBNBContractAddr}/" ${DEPLOY_PATH}/zkbnb/tools/dbinitializer/contractaddr.yaml
 
-GovernanceContractAddr=$(cat ${DEPLOY_PATH}/zkbnb-contract/info/addresses.json | jq -r '.governance')
+GovernanceContractAddr=`cat ${DEPLOY_PATH}/zkbnb-contract/info/addresses.json  | jq -r '.governance'`
 sed -i -e "s/Governance: .*/Governance: ${GovernanceContractAddr}/" ${DEPLOY_PATH}/zkbnb/tools/dbinitializer/contractaddr.yaml
 
-BUSDContractAddr=$(cat ${DEPLOY_PATH}/zkbnb-contract/info/addresses.json | jq -r '.BUSDToken')
+BUSDContractAddr=`cat ${DEPLOY_PATH}/zkbnb-contract/info/addresses.json  | jq -r '.BUSDToken'`
 sed -i -e "s/BUSDToken: .*/BUSDToken: ${BUSDContractAddr}/" ${DEPLOY_PATH}/zkbnb/tools/dbinitializer/contractaddr.yaml
 
-cd ${DEPLOY_PATH}/zkbnb/
-make api-server
+DefaultNftFactoryAddr=`cat ${DEPLOY_PATH}/zkbnb-contract/info/addresses.json  | jq -r '.DefaultNftFactory'`
+sed -i -e "s/DefaultNftFactory: .*/DefaultNftFactory: ${DefaultNftFactoryAddr}/" ${DEPLOY_PATH}/zkbnb/tools/dbinitializer/contractaddr.yaml
+
+ cd ${DEPLOY_PATH}/zkbnb/
+ make api-server
 cd ${DEPLOY_PATH}/zkbnb && go mod tidy
 
 echo "6. init tables on database"
@@ -155,6 +166,10 @@ sed -i '' -e '/-e/,1d' ${DEPLOY_PATH}/zkbnb/service/prover/etc/config.yaml
 sed -i '' -e '/-e/,1d' run_prover.sh
 pm2 start --name prover "./run_prover.sh"
 
+
+
+
+
 echo "8. run witness"
 
 echo -e "
@@ -171,15 +186,16 @@ CacheRedis:
 TreeDB:
   Driver: memorydb
   AssetTreeCacheSize: 512000
-" >${DEPLOY_PATH}/zkbnb/service/witness/etc/config.yaml
+" > ${DEPLOY_PATH}/zkbnb/service/witness/etc/config.yaml
 
 echo -e "
 go run ./cmd/zkbnb/main.go witness --config ${DEPLOY_PATH}/zkbnb/service/witness/etc/config.yaml --pprof --pprof.addr 127.0.0.1 --pprof.port 6061 --metrics --metrics.addr 127.0.0.1 --metrics.port 6061
-" >run_witness.sh
+" > run_witness.sh
 # remove the fist line if it includes -e
 sed -i '' -e '/-e/,1d' ${DEPLOY_PATH}/zkbnb/service/witness/etc/config.yaml
 sed -i '' -e '/-e/,1d' run_witness.sh
 pm2 start --name witness "./run_witness.sh"
+
 
 echo "9. run monitor"
 
@@ -205,15 +221,16 @@ ChainConfig:
 TreeDB:
   Driver: memorydb
   AssetTreeCacheSize: 512000
-" >${DEPLOY_PATH}/zkbnb/service/monitor/etc/config.yaml
+" > ${DEPLOY_PATH}/zkbnb/service/monitor/etc/config.yaml
 
 echo -e "
 go run ./cmd/zkbnb/main.go monitor --config ${DEPLOY_PATH}/zkbnb/service/monitor/etc/config.yaml --pprof --pprof.addr 127.0.0.1 --pprof.port 6062 --metrics --metrics.addr 127.0.0.1 --metrics.port 6062
-" >run_monitor.sh
+" > run_monitor.sh
 # remove the fist line if it includes -e
 sed -i '' -e '/-e/,1d' ${DEPLOY_PATH}/zkbnb/service/monitor/etc/config.yaml
 sed -i '' -e '/-e/,1d' run_monitor.sh
 pm2 start --name monitor "./run_monitor.sh"
+
 
 echo "10. run committer"
 
@@ -237,15 +254,16 @@ IpfsUrl:
 TreeDB:
   Driver: memorydb
   AssetTreeCacheSize: 512000
-" >${DEPLOY_PATH}/zkbnb/service/committer/etc/config.yaml
+" > ${DEPLOY_PATH}/zkbnb/service/committer/etc/config.yaml
 
 echo -e "
 go run ./cmd/zkbnb/main.go committer --config ${DEPLOY_PATH}/zkbnb/service/committer/etc/config.yaml --pprof --pprof.addr 127.0.0.1 --pprof.port 6063 --metrics --metrics.addr 127.0.0.1 --metrics.port 6063
-" >run_committer.sh
+" > run_committer.sh
 # remove the fist line if it includes -e
 sed -i '' -e '/-e/,1d' ${DEPLOY_PATH}/zkbnb/service/committer/etc/config.yaml
 sed -i '' -e '/-e/,1d' run_committer.sh
 pm2 start --name committer "./run_committer.sh"
+
 
 echo "11. run sender"
 
@@ -274,15 +292,16 @@ ChainConfig:
 TreeDB:
   Driver: memorydb
   AssetTreeCacheSize: 512000
-" >${DEPLOY_PATH}/zkbnb/service/sender/etc/config.yaml
+" > ${DEPLOY_PATH}/zkbnb/service/sender/etc/config.yaml
 
 echo -e "
 go run ./cmd/zkbnb/main.go sender --config ${DEPLOY_PATH}/zkbnb/service/sender/etc/config.yaml --pprof --pprof.addr 127.0.0.1 --pprof.port 6064 --metrics --metrics.addr 127.0.0.1 --metrics.port 6064
-" >run_sender.sh
+" > run_sender.sh
 # remove the fist line if it includes -e
 sed -i '' -e '/-e/,1d' ${DEPLOY_PATH}/zkbnb/service/sender/etc/config.yaml
 sed -i '' -e '/-e/,1d' run_sender.sh
 pm2 start --name sender "./run_sender.sh"
+
 
 echo "12. run api-server"
 
@@ -311,6 +330,13 @@ LogConf:
   StackCooldownMillis: 500
   Level: error
 
+Apollo:
+  AppID:             zkbnb-cloud
+  Cluster:           prod
+  ApolloIp:          http://internal-tf-cm-test-apollo-config-alb-2119591301.ap-northeast-1.elb.amazonaws.com:9028
+  Namespace:         application
+  IsBackupConfig:    true
+
 IpfsUrl:
   10.23.23.40:5001
 CoinMarketCap:
@@ -325,11 +351,11 @@ MemCache:
   PriceExpiration:   3600000
   MaxCounterNum:     100000
   MaxKeyNum:         10000
-  " >${DEPLOY_PATH}/zkbnb/service/apiserver/etc/config.yaml
+  " > ${DEPLOY_PATH}/zkbnb/service/apiserver/etc/config.yaml
 
 echo -e "
 go run ./cmd/zkbnb/main.go apiserver --config ${DEPLOY_PATH}/zkbnb/service/apiserver/etc/config.yaml --pprof --pprof.addr 127.0.0.1 --pprof.port 6065 --metrics --metrics.addr 127.0.0.1 --metrics.port 6065
-" >run_apiserver.sh
+" > run_apiserver.sh
 # remove the fist line if it includes -e
 sed -i '' -e '/-e/,1d' ${DEPLOY_PATH}/zkbnb/service/apiserver/etc/config.yaml
 sed -i '' -e '/-e/,1d' run_apiserver.sh
