@@ -13,7 +13,7 @@ KEY_PATH=~/.zkbnb
 ZkBNB_REPO_PATH=$(cd `dirname $0`; pwd)
 CMC_TOKEN=cfce503f-fake-fake-fake-bbab5257dac8
 NETWORK_RPC_SYS_CONFIG_NAME=LocalTestNetworkRpc # BscTestNetworkRpc or LocalTestNetworkRpc
-BSC_TESTNET_RPC=HTTP://10.23.34.134:8545
+BSC_TESTNET_RPC=http://127.0.0.1:8545
 BSC_TESTNET_PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 COMMIT_BLOCK_PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 VERIFY_BLOCK_PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
@@ -25,8 +25,8 @@ SECURITY_COUNCIL_MEMBERS_NUMBER_2=0x0000000000000000000000000000000000000000
 SECURITY_COUNCIL_MEMBERS_NUMBER_3=0x0000000000000000000000000000000000000000
 # validator config, split by `,` commit block address  and verify block address
 VALIDATORS=
-ZKBNB_ALL_OPTIONAL_BLOCK_SIZES=16,32
-ZKBNB_PROVER_OPTIONAL_BLOCK_SIZES=16
+ZKBNB_ALL_OPTIONAL_BLOCK_SIZES=2,4,8
+ZKBNB_PROVER_OPTIONAL_BLOCK_SIZES=2
 
 export PATH=$PATH:/usr/local/go/bin:/usr/local/go/bin:/root/go/bin
 echo '0. stop old database/redis and docker run new database/redis'
@@ -55,7 +55,7 @@ if [ $flag = "new" ]; then
   echo "new crypto env"
   echo '2. start generate zkbnb.vk and zkbnb.pk'
   cd ${DEPLOY_PATH}
-  cd zkbnb-crypto && go test ./circuit/solidity -timeout 99999s -run TestExportSol -blocksizes=${ZKBNB_OPTIONAL_BLOCK_SIZES}
+  cd zkbnb-crypto && go test ./circuit/solidity -timeout 99999s -run TestExportSol -blocksizes=${ZKBNB_ALL_OPTIONAL_BLOCK_SIZES}
   cd ${DEPLOY_PATH}
   mkdir -p $KEY_PATH
   cp -r ./zkbnb-crypto/circuit/solidity/* $KEY_PATH
@@ -140,7 +140,7 @@ CacheRedis:
 KeyPath: [${PROVING_KEYS}]
 
 BlockConfig:
-  OptionalBlockSizes: [${$ZKBNB_PROVER_OPTIONAL_BLOCK_SIZES}]
+  OptionalBlockSizes: [${ZKBNB_PROVER_OPTIONAL_BLOCK_SIZES}]
 
 TreeDB:
   Driver: memorydb
@@ -229,7 +229,7 @@ CacheRedis:
     Type: node
 
 BlockConfig:
-  OptionalBlockSizes: [${ZKBNB_PROVER_OPTIONAL_BLOCK_SIZES}]
+  OptionalBlockSizes: [${ZKBNB_ALL_OPTIONAL_BLOCK_SIZES}]
 
 IpfsUrl:
   10.23.23.40:5001
