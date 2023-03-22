@@ -36,7 +36,9 @@ func NewTransferNftExecutor(bc IBlockchain, tx *tx.Tx) (TxExecutor, error) {
 func (e *TransferNftExecutor) Prepare() error {
 	bc := e.bc
 	txInfo := e.TxInfo
-	txInfo.ToAccountIndex = types.NilAccountIndex
+	if !e.isExodusExit {
+		txInfo.ToAccountIndex = types.NilAccountIndex
+	}
 	_, err := e.bc.StateDB().PrepareNft(txInfo.NftIndex)
 	if err != nil {
 		logx.Errorf("prepare nft failed")
@@ -163,6 +165,7 @@ func (e *TransferNftExecutor) GeneratePubData() error {
 	buf.WriteByte(uint8(types.TxTypeTransferNft))
 	buf.Write(common2.Uint32ToBytes(uint32(txInfo.FromAccountIndex)))
 	buf.Write(common2.Uint32ToBytes(uint32(txInfo.ToAccountIndex)))
+	buf.Write(common2.AddressStrToBytes(txInfo.ToL1Address))
 	buf.Write(common2.Uint40ToBytes(txInfo.NftIndex))
 	buf.Write(common2.Uint16ToBytes(uint16(txInfo.GasFeeAssetId)))
 	packedFeeBytes, err := common2.FeeToPackedFeeBytes(txInfo.GasFeeAssetAmount)
@@ -345,7 +348,9 @@ func (e *TransferNftExecutor) Finalize() error {
 	if e.IsCreateAccount {
 		bc := e.bc
 		txInfo := e.TxInfo
-		bc.StateDB().AccountAssetTrees.UpdateCache(txInfo.ToAccountIndex, bc.CurrentBlock().BlockHeight)
+		if !e.isExodusExit {
+			bc.StateDB().AccountAssetTrees.UpdateCache(txInfo.ToAccountIndex, bc.CurrentBlock().BlockHeight)
+		}
 		accountInfo := e.GetCreatingAccount()
 		bc.StateDB().SetPendingAccountL1AddressMap(accountInfo.L1Address, accountInfo.AccountIndex)
 	}

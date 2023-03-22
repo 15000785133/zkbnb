@@ -31,8 +31,6 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 	"gorm.io/gorm"
 	"math/big"
-
-	"github.com/bnb-chain/zkbnb-eth-rpc/rpc"
 )
 
 func (m *Monitor) MonitorGenericBlocks() (err error) {
@@ -45,7 +43,6 @@ func (m *Monitor) MonitorGenericBlocks() (err error) {
 		if exodusExitBlock.BlockHeight == m.Config.ChainConfig.EndL2BlockHeight &&
 			(exodusExitBlock.BlockStatus == exodusexit.StatusVerified || exodusExitBlock.BlockStatus == exodusexit.StatusExecuted) {
 			logx.Info("get all the l2 blocks from l1 successfully")
-			panic("success")
 			return nil
 		}
 	}
@@ -244,17 +241,23 @@ func (m *Monitor) getCommitBlocksCallData(hash string) (*CommitBlocksCallData, e
 	return &callData, nil
 }
 
-func (m *Monitor) getLastStoredBlockInfo(committedTxHash string) (*StorageStoredBlockInfo, error) {
-	commitBlocksCallData, err := m.getCommitBlocksCallData(committedTxHash)
+func (m *Monitor) getLastStoredBlockInfo(verifyTxHash string, height int64) (*StorageStoredBlockInfo, error) {
+	blocksCallData, err := m.getVerifyAndExecuteBlocksCallData(verifyTxHash)
 	if err != nil {
 		return nil, err
 	}
-	return commitBlocksCallData.LastCommittedBlockData, err
+	for _, blocksInfo := range blocksCallData.VerifyAndExecuteBlocksInfo {
+		if blocksInfo.BlockHeader.BlockNumber == uint32(height) {
+			return &blocksInfo.BlockHeader, nil
+		}
+	}
+	logx.Severe("not find last stored block")
+	return nil, nil
 }
 
-func (m *Monitor) getVerifyAndExecuteBlocksCallData(cli *rpc.ProviderClient, hash string) (*VerifyAndExecuteBlocksCallData, error) {
+func (m *Monitor) getVerifyAndExecuteBlocksCallData(hash string) (*VerifyAndExecuteBlocksCallData, error) {
 	newABIDecoder := abicoder.NewABIDecoder(monitor2.ZkBNBContractAbi)
-	transaction, _, err := cli.Client.TransactionByHash(context.Background(), common.HexToHash(hash))
+	transaction, _, err := m.cli.Client.TransactionByHash(context.Background(), common.HexToHash(hash))
 	if err != nil {
 		logx.Severe(err)
 		return nil, err

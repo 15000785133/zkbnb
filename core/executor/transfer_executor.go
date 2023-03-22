@@ -37,7 +37,9 @@ func (e *TransferExecutor) Prepare() error {
 	bc := e.bc
 	txInfo := e.TxInfo
 	toL1Address := txInfo.ToL1Address
-	txInfo.ToAccountIndex = types.NilAccountIndex
+	if !e.isExodusExit {
+		txInfo.ToAccountIndex = types.NilAccountIndex
+	}
 	toAccount, err := bc.StateDB().GetAccountByL1Address(toL1Address)
 	if err != nil && err != types.AppErrAccountNotFound {
 		return err
@@ -153,6 +155,7 @@ func (e *TransferExecutor) GeneratePubData() error {
 	buf.WriteByte(uint8(types.TxTypeTransfer))
 	buf.Write(common2.Uint32ToBytes(uint32(txInfo.FromAccountIndex)))
 	buf.Write(common2.Uint32ToBytes(uint32(txInfo.ToAccountIndex)))
+	buf.Write(common2.AddressStrToBytes(txInfo.ToL1Address))
 	buf.Write(common2.Uint16ToBytes(uint16(txInfo.AssetId)))
 	packedAmountBytes, err := common2.AmountToPackedAmountBytes(txInfo.AssetAmount)
 	if err != nil {
@@ -314,7 +317,9 @@ func (e *TransferExecutor) Finalize() error {
 	if e.IsCreateAccount {
 		bc := e.bc
 		txInfo := e.TxInfo
-		bc.StateDB().AccountAssetTrees.UpdateCache(txInfo.ToAccountIndex, bc.CurrentBlock().BlockHeight)
+		if !e.isExodusExit {
+			bc.StateDB().AccountAssetTrees.UpdateCache(txInfo.ToAccountIndex, bc.CurrentBlock().BlockHeight)
+		}
 		accountInfo := e.GetCreatingAccount()
 		bc.StateDB().SetPendingAccountL1AddressMap(accountInfo.L1Address, accountInfo.AccountIndex)
 	}
