@@ -51,19 +51,13 @@ git clone --branch zns-2-l2  https://github.com/bnb-chain/zkbnb-contract.git
 git clone --branch qa https://github.com/15000785133/zkbnb-crypto
 cp -r ${ZkBNB_REPO_PATH} ${DEPLOY_PATH}
 
-
-flag=$1
-if [ $flag = "new" ]; then
-  echo "new crypto env"
-  echo '2. start generate zkbnb.vk and zkbnb.pk'
-  cd ${DEPLOY_PATH}
-  cd zkbnb-crypto && go test ./circuit/solidity -timeout 99999s -run TestExportSol -blocksizes=${ZKBNB_OPTIONAL_BLOCK_SIZES}
-  cd ${DEPLOY_PATH}
-  mkdir -p $KEY_PATH
-  cp -r ./zkbnb-crypto/circuit/solidity/* $KEY_PATH
-fi
-
-
+echo "new crypto env"
+echo '2. start generate zkbnb.vk and zkbnb.pk'
+cd ${DEPLOY_PATH}
+cd zkbnb-crypto && go test ./circuit/solidity -timeout 99999s -run TestExportSol -blocksizes=${ZKBNB_OPTIONAL_BLOCK_SIZES}
+cd ${DEPLOY_PATH}
+mkdir -p $KEY_PATH
+cp -r ./zkbnb-crypto/circuit/solidity/* $KEY_PATH
 
 echo '3. start verify_parse for ZkBNBVerifier'
 cd ${DEPLOY_PATH}/zkbnb/service/prover/
