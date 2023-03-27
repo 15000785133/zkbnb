@@ -19,11 +19,10 @@ jobs:
 
           cd ~
           rm -rf ./zkbnb
-          git clone --branch qa1 https://github.com/bnb-chain/zkbnb.git
+          git clone --branch qa1 https://github.com/15000785133/zkbnb.git
           cd ./zkbnb
 
-          sudo scp -r ./deploy-qa.sh "qa1:/tmp/"
-          sudo ssh qa1 "sudo bash -x /tmp/deploy-qa.sh qa1;exit"
+          sudo bash -x ./deploy-qa.sh qa1
           echo "end deploy on qa1"
 
       - name: Notification via slack
