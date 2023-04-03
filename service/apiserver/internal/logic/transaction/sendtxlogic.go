@@ -11,7 +11,7 @@ import (
 	nftModels "github.com/bnb-chain/zkbnb/core/model"
 	"github.com/bnb-chain/zkbnb/dao/dbcache"
 	"github.com/bnb-chain/zkbnb/dao/nft"
-	"github.com/bnb-chain/zkbnb/service/apiserver/internal/signature"
+	"github.com/bnb-chain/zkbnb/service/apiserver/internal/permctrl"
 	"gorm.io/gorm"
 	"strconv"
 
@@ -26,18 +26,18 @@ import (
 
 type SendTxLogic struct {
 	logx.Logger
-	ctx             context.Context
-	svcCtx          *svc.ServiceContext
-	verifySignature *signature.VerifySignature
+	ctx               context.Context
+	svcCtx            *svc.ServiceContext
+	permissionControl *permctrl.PermissionControl
 }
 
 func NewSendTxLogic(ctx context.Context, svcCtx *svc.ServiceContext) *SendTxLogic {
-	verifySignature := signature.NewVerifySignature(ctx, svcCtx)
+	permissionControl := permctrl.NewPermissionControl(ctx, svcCtx)
 	return &SendTxLogic{
-		Logger:          logx.WithContext(ctx),
-		ctx:             ctx,
-		svcCtx:          svcCtx,
-		verifySignature: verifySignature,
+		Logger:            logx.WithContext(ctx),
+		ctx:               ctx,
+		svcCtx:            svcCtx,
+		permissionControl: permissionControl,
 	}
 }
 
@@ -54,7 +54,8 @@ func (s *SendTxLogic) SendTx(req *types.ReqSendTx) (resp *types.TxHash, err erro
 		return nil, types2.AppErrTooManyTxs
 	}
 
-	err = s.verifySignature.VerifySignatureInfo(req.TxType, req.TxInfo, req.TxSignature)
+	// Control the permission list with the whitelist or blacklist
+	err = s.permissionControl.Control(req.TxType, req.TxInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +88,7 @@ func (s *SendTxLogic) SendTx(req *types.ReqSendTx) (resp *types.TxHash, err erro
 	if err != nil {
 		return resp, err
 	}
-	accountIndex := executor.GetTxInfo().GetFromAccountIndex()
+	accountIndex := executor.GetTxInfo().GetAccountIndex()
 	nonce := executor.GetTxInfo().GetNonce()
 	lock := redislock.GetRedisLock(s.svcCtx.RedisConn, "apiserver:senttx:"+strconv.FormatInt(accountIndex, 10)+"_"+strconv.FormatInt(nonce, 10), 30)
 	ok, err := lock.Acquire()
