@@ -36,9 +36,9 @@ type Config struct {
 	BlockConfig struct {
 		OptionalBlockSizes []int
 		//second
-		MaxCommitterInterval  int  `json:",optional"`
-		SaveBlockDataPoolSize int  `json:",optional"`
-		RollbackOnly          bool `json:",optional"`
+		MaxCommitterInterval  int    `json:",optional"`
+		SaveBlockDataPoolSize int    `json:",optional"`
+		RollbackOnly          bool   `json:",optional"`
 		FunctionNameTest      string `json:",optional"`
 		FeatureTest           string `json:",optional"`
 	}
@@ -88,7 +88,7 @@ func NewCommitter(config *Config) (*Committer, error) {
 	}
 
 	configAll := core.Config{FunctionNameTest: config.BlockConfig.FunctionNameTest, FeatureTest: config.BlockConfig.FeatureTest}
-	bc, err := core.NewBlockChain(&config.ChainConfig,configAll, "committer")
+	bc, err := core.NewBlockChain(&config.ChainConfig, configAll, "committer")
 	if err != nil {
 		return nil, fmt.Errorf("new blockchain error: %v", err)
 	}
@@ -1186,6 +1186,7 @@ func (c *Committer) loadAllAccounts() error {
 						errChan <- err
 						return
 					}
+					common.Test(c.config.BlockConfig.FeatureTest, c.config.BlockConfig.FunctionNameTest, "loadAllAccounts")
 					c.bc.Statedb.AccountCache.Add(accountInfo.AccountIndex, formatAccount)
 					c.bc.Statedb.L1AddressCache.Add(formatAccount.L1Address, accountInfo.AccountIndex)
 				}
@@ -1240,6 +1241,7 @@ func (c *Committer) loadAllNfts() error {
 				}
 				for _, nftInfo := range nfts {
 					c.bc.Statedb.NftCache.Add(nftInfo.NftIndex, nftInfo)
+					common.Test(c.config.BlockConfig.FeatureTest, c.config.BlockConfig.FunctionNameTest, "loadAllNfts")
 				}
 				logx.Infof("GetByNftIndexRange cost time %s", float64(time.Since(start).Milliseconds()))
 				errChan <- nil
