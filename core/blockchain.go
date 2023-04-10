@@ -185,7 +185,7 @@ func NewBlockChain(config *ChainConfig, configAll Config, moduleName string) (*B
 	}
 	bc.Statedb.UpdateAccountIndex(types.NilAccountIndex)
 	if poolTx != nil {
-		bc.Statedb.UpdateAccountIndex(poolTx.AccountIndex)
+		bc.Statedb.UpdateAccountIndex(poolTx.ToAccountIndex)
 	}
 
 	latestRollback, err := bc.TxPoolModel.GetLatestRollback(tx.StatusPending, true)
