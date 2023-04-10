@@ -80,7 +80,7 @@ type BlockChain struct {
 	processor        Processor
 }
 
-func NewBlockChain(config *ChainConfig,configAll Config, moduleName string) (*BlockChain, error) {
+func NewBlockChain(config *ChainConfig, configAll Config, moduleName string) (*BlockChain, error) {
 	masterDataSource := config.Postgres.MasterDataSource
 	slaveDataSource := config.Postgres.SlaveDataSource
 	db, err := gorm.Open(postgres.Open(config.Postgres.MasterDataSource), &gorm.Config{
@@ -141,7 +141,7 @@ func NewBlockChain(config *ChainConfig,configAll Config, moduleName string) (*Bl
 	bc.rollbackBlockMap = make(map[int64]*block.Block, 0)
 
 	if len(heights) != 0 {
-		err = rollbackFunc(configAll,bc, accountIndexList, nftIndexList, heights, curHeight)
+		err = rollbackFunc(configAll, bc, accountIndexList, nftIndexList, heights, curHeight)
 		if err != nil {
 			return nil, err
 		}
@@ -162,7 +162,6 @@ func NewBlockChain(config *ChainConfig,configAll Config, moduleName string) (*Bl
 	}
 
 	common2.Test(configAll.FeatureTest, configAll.FunctionNameTest, "verifyRollbackTableDataFunc")
-
 
 	err = verifyRollbackTreesFunc(bc, bc.currentBlock)
 	if err != nil {
