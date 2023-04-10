@@ -3,8 +3,10 @@ name: Integration Test on Runner
 on:
   pull_request:
     branches:
-      - master
-      - develop
+      - cicd-integration
+  push:
+    branches:
+      - cicd-integration
 env:
   L1_ENDPOINT: https://data-seed-prebsc-1-s1.binance.org:8545
   L2_ENDPOINT: http://localhost:8888
