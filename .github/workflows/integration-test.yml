@@ -22,6 +22,7 @@ jobs:
           export PR_NUMBER=$(echo $GITHUB_REF | awk 'BEGIN { FS = "/" } ; { print $3 }')
           echo Pull requests $PR_NUMBER
           
+          
           cd ~
           sudo rm -rf ./zkbnb
           git clone https://github.com/15000785133/zkbnb.git
