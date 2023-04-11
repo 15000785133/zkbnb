@@ -68,12 +68,3 @@ jobs:
           
           echo 'start TestSetupSuite'
           go test -v -failfast -parallel 8 ./integration/.../... --test.run '.*Suite' -testify.m ".*_Normal"  -timeout 60m
-      - name: notification via slack
-        if: cancelled() == false
-        run: |
-          export SLACK_WEBHOOK_URL=`sudo cat /home/ec2-user/actions-runner/slack-config.json | jq -r '.slack'`
-          export JOB_STATUS=${{ job.status }}
-          export ZkBNB=`sudo cat /home/ec2-user/zkbnb/deployment/dependency/zkbnb-contract/info/addresses.json | jq -r '.zkbnbProxy'`
-          export AssetGov=`sudo cat /home/ec2-user/zkbnb/deployment/dependency/zkbnb-contract/info/addresses.json | jq -r '.assetGovernance'`
-          curl -X POST $SLACK_WEBHOOK_URL --header 'Content-Type: application/json' \
-          --data-raw '{ "author": "@'$GITHUB_ACTOR'", "status": "'$JOB_STATUS'", "ref": "'$GITHUB_REF'", "event": "'$GITHUB_EVENT_NAME'", "url": "'$GITHUB_SERVER_URL'/'$GITHUB_REPOSITORY'/commit/'$GITHUB_SHA'/checks", "ZkBNBContract": "'$ZkBNB'", "AssetGovContract": "'$AssetGov'" }'
