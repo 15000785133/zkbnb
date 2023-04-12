@@ -9,7 +9,8 @@ info(
 /* ========================= root =========================*/
 
 type ResultCode {
-	Code int32 `json:"code"`
+	Code    int32  `json:"code"`
+	Message string `json:"message"`
 }
 
 type (
