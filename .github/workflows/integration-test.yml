@@ -38,9 +38,18 @@ jobs:
           make docker-image
           sudo mkdir -p ./deployment/.zkbnb
           sudo cp ~/test.keyfile/* ./deployment/.zkbnb
-          source <(sudo cat /server/.env)
+          source <(sudo cat ~/.env)
           blockNr=$(sudo bash ./deployment/tool/tool.sh blockHeight)
-          sudo BSC_TESTNET_PRIVATE_KEY=${BSC_TESTNET_PRIVATE_KEY} bash ./deployment/tool/tool.sh all
+          
+          sudo BSC_TESTNET_RPC=${BSC_TESTNET_RPC} \
+          BSC_TESTNET_PRIVATE_KEY=${BSC_TESTNET_PRIVATE_KEY} \
+          COMMIT_BLOCK_PRIVATE_KEY=${COMMIT_BLOCK_PRIVATE_KEY} \
+          VERIFY_BLOCK_PRIVATE_KEY=${VERIFY_BLOCK_PRIVATE_KEY} \
+          VALIDATORS=${VALIDATORS} \
+          SECURITY_COUNCIL_MEMBERS_NUMBER_1=${SECURITY_COUNCIL_MEMBERS_NUMBER_1} \
+          SECURITY_COUNCIL_MEMBERS_NUMBER_2=${SECURITY_COUNCIL_MEMBERS_NUMBER_2} \
+          SECURITY_COUNCIL_MEMBERS_NUMBER_3=${SECURITY_COUNCIL_MEMBERS_NUMBER_3} bash ./deployment/tool/tool.sh all
+          
           sudo bash ./deployment/docker-compose/docker-compose.sh down
           sudo bash ./deployment/docker-compose/docker-compose.sh up $blockNr
           echo "Contract addresses"
@@ -51,7 +60,7 @@ jobs:
       - name: run integration test
         if: ${{ !contains(github.event.pull_request.body, '/skip-integration-test') }}
         run: |
-          source <(sudo cat /server/.env)
+          source <(sudo cat ~/.env)
           export PATH=$PATH:/usr/local/go/bin:/usr/local/go/bin:/root/go/bin:/usr/local/bin
           export ZkBNB=$(sudo cat ~/zkbnb/deployment/dependency/zkbnb-contract/info/addresses.json  | jq -r '.zkbnbProxy')
           export AssetGov=$(sudo cat ~/zkbnb/deployment/dependency/zkbnb-contract/info/addresses.json  | jq -r '.assetGovernance')
