@@ -36,7 +36,7 @@ jobs:
           docker image prune -f
           make docker-image
           sudo mkdir -p ./deployment/.zkbnb
-          sudo cp /server/test.keyfile/* ./deployment/.zkbnb
+          sudo cp ~/test.keyfile/* ./deployment/.zkbnb
           source <(sudo cat /server/.env)
           blockNr=$(sudo bash ./deployment/tool/tool.sh blockHeight)
           sudo BSC_TESTNET_PRIVATE_KEY=${BSC_TESTNET_PRIVATE_KEY} bash ./deployment/tool/tool.sh all
