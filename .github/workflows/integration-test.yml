@@ -42,16 +42,19 @@ jobs:
           blockNr=$(sudo bash ./deployment/tool/tool.sh blockHeight)
           
           sudo BSC_TESTNET_RPC=${BSC_TESTNET_RPC} \
-          BSC_TESTNET_PRIVATE_KEY=${BSC_TESTNET_PRIVATE_KEY} \
-          COMMIT_BLOCK_PRIVATE_KEY=${COMMIT_BLOCK_PRIVATE_KEY} \
-          VERIFY_BLOCK_PRIVATE_KEY=${VERIFY_BLOCK_PRIVATE_KEY} \
-          VALIDATORS=${VALIDATORS} \
-          SECURITY_COUNCIL_MEMBERS_NUMBER_1=${SECURITY_COUNCIL_MEMBERS_NUMBER_1} \
-          SECURITY_COUNCIL_MEMBERS_NUMBER_2=${SECURITY_COUNCIL_MEMBERS_NUMBER_2} \
-          SECURITY_COUNCIL_MEMBERS_NUMBER_3=${SECURITY_COUNCIL_MEMBERS_NUMBER_3} bash ./deployment/tool/tool.sh all
+            BSC_TESTNET_PRIVATE_KEY=${BSC_TESTNET_PRIVATE_KEY} \
+            COMMIT_BLOCK_PRIVATE_KEY=${COMMIT_BLOCK_PRIVATE_KEY} \
+            VERIFY_BLOCK_PRIVATE_KEY=${VERIFY_BLOCK_PRIVATE_KEY} \
+            VALIDATORS=${VALIDATORS} \
+            SECURITY_COUNCIL_MEMBERS_NUMBER_1=${SECURITY_COUNCIL_MEMBERS_NUMBER_1} \
+            SECURITY_COUNCIL_MEMBERS_NUMBER_2=${SECURITY_COUNCIL_MEMBERS_NUMBER_2} \
+            SECURITY_COUNCIL_MEMBERS_NUMBER_3=${SECURITY_COUNCIL_MEMBERS_NUMBER_3} \
+            bash ./deployment/tool/tool.sh all
           
           sudo bash ./deployment/docker-compose/docker-compose.sh down
-          sudo bash ./deployment/docker-compose/docker-compose.sh up $blockNr
+          sudo COMMIT_BLOCK_PRIVATE_KEY=${COMMIT_BLOCK_PRIVATE_KEY} \
+            VERIFY_BLOCK_PRIVATE_KEY=${VERIFY_BLOCK_PRIVATE_KEY} \
+            bash ./deployment/docker-compose/docker-compose.sh up $blockNr
           echo "Contract addresses"
           cat ~/zkbnb/deployment/dependency/zkbnb-contract/info/addresses.json
           echo "Waiting 3m for the initialization tx to be verified"
