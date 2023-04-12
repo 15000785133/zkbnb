@@ -31,13 +31,13 @@ func Test(feature string, functionNameConfig string, functionName string) {
 	if !strings.Contains(functionNameConfig+",", functionName+",") {
 		return
 	}
-	if time.Now().UnixMilli()%2 == 0 {
-		if feature == "sleep" {
-			logx.Infof("%s->%s", functionNameConfig, feature)
-			time.Sleep(2 * time.Minute)
-		} else if feature == "panic" {
-			logx.Severef("%s->%s", functionNameConfig, feature)
-			panic(functionNameConfig + "->" + feature)
-		}
+	//if time.Now().UnixMilli()%2 == 0 {
+	if feature == "sleep" {
+		logx.Infof("%s->%s", functionNameConfig, feature)
+		time.Sleep(2 * time.Minute)
+	} else if feature == "panic" {
+		logx.Severef("%s->%s", functionNameConfig, feature)
+		panic(functionNameConfig + "->" + feature)
 	}
+	//}
 }
