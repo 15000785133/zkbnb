@@ -18,7 +18,7 @@ jobs:
       - name: deploy new zkbnb on runner
         if: ${{ !contains(github.event.pull_request.body, '/skip-integration-test') }}
         run: |
-          echo 'fetch zkbnb repo'
+          echo ">>> Fetch zkbnb repo'
           export PR_NUMBER=$(echo $GITHUB_REF | awk 'BEGIN { FS = "/" } ; { print $3 }')
           echo Pull requests $PR_NUMBER
           
@@ -26,12 +26,12 @@ jobs:
           cd ~
           sudo rm -rf ./zkbnb
           git clone https://github.com/15000785133/zkbnb.git
-          echo "Integration tests run on commit id: $GITHUB_SHA"
+          echo ">>> Integration tests run on commit id: $GITHUB_SHA"
           cd ./zkbnb
           git fetch origin pull/$PR_NUMBER/head:$GITHUB_SHA
           git checkout $GITHUB_SHA
 
-          echo "start deploy new zkbnb"
+          echo ">>> Start deploy new zkbnb"
           sudo bash ./deployment/tool/generate_api.sh
           go mod tidy
           docker image prune -f
@@ -55,11 +55,11 @@ jobs:
           sudo COMMIT_BLOCK_PRIVATE_KEY=${COMMIT_BLOCK_PRIVATE_KEY} \
             VERIFY_BLOCK_PRIVATE_KEY=${VERIFY_BLOCK_PRIVATE_KEY} \
             bash ./deployment/docker-compose/docker-compose.sh up $blockNr
-          echo "Contract addresses"
+          echo ">>> Contract addresses"
           cat ~/zkbnb/deployment/dependency/zkbnb-contract/info/addresses.json
-          echo "Waiting 3m for the initialization tx to be verified"
+          echo ">>> Waiting 3m for the initialization tx to be verified"
           sleep 3m # Waiting for the initialization tx to be verified
-          echo "end deploy"
+          echo ">>> End deploy"
       - name: run integration test
         if: ${{ !contains(github.event.pull_request.body, '/skip-integration-test') }}
         run: |
@@ -73,8 +73,8 @@ jobs:
           export GovKey=${BSC_TESTNET_PRIVATE_KEY}
           
           cd /tmp && sudo rm -rf ./zkbnb-integration-test
-          git clone --branch qa https://github.com/bnb-chain/zkbnb-integration-test.git
-          cd ./zkbnb-integration-test/tests
+          git clone --branch qa https://${GH_PAT}@github.com/bnb-chain/zkbnb-integration-test.git
+          cd ./zkbnb-integration-test && go mod tidy
           
-          echo 'start TestSetupSuite'
-          go test -v -failfast -parallel 8 ./integration/.../... --test.run '.*Suite' -testify.m ".*_Normal"  -timeout 60m
+          echo ">>>Start TestSetupSuite'
+          cd tests; go test -v -failfast -parallel 8 ./integration/.../... --test.run '.*Suite' -testify.m ".*_Normal"  -timeout 60m
