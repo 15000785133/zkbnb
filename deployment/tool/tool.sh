@@ -71,7 +71,7 @@ function deployContracts() {
     sed -i -e "s/Governance: .*/Governance: ${GovernanceContractAddr}/" ${WORKDIR}/configs/contractaddr.yaml
     BUSDContractAddr=`cat ${WORKDIR}/dependency/zkbnb-contract/info/addresses.json  | jq -r '.BUSDToken'`
     sed -i -e "s/BUSDToken: .*/BUSDToken: ${BUSDContractAddr}/" ${WORKDIR}/configs/contractaddr.yaml
-    DefaultNftFactoryAddr=`cat ${DEPLOY_PATH}/zkbnb-contract/info/addresses.json  | jq -r '.DefaultNftFactory'`
+    DefaultNftFactoryAddr=`cat ${WORKDIR}/dependency/zkbnb-contract/info/addresses.json  | jq -r '.DefaultNftFactory'`
     sed -i -e "s/DefaultNftFactory: .*/DefaultNftFactory: ${DefaultNftFactoryAddr}/" ${WORKDIR}/configs/contractaddr.yaml
 }
 
