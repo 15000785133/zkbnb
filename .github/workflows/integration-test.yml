@@ -5,7 +5,7 @@ on:
     branches:
       - cicd-integration
 env:
-  L1_ENDPOINT: https://data-seed-prebsc-1-s1.binance.org:8545
+  L1_ENDPOINT: https://data-seed-prebsc-2-s2.binance.org:8545
   L2_ENDPOINT: http://localhost:8888
 
 jobs:
@@ -18,7 +18,7 @@ jobs:
       - name: deploy new zkbnb on runner
         if: ${{ !contains(github.event.pull_request.body, '/skip-integration-test') }}
         run: |
-          echo ">>> Fetch zkbnb repo'
+          echo ">>> Fetch zkbnb repo"
           export PR_NUMBER=$(echo $GITHUB_REF | awk 'BEGIN { FS = "/" } ; { print $3 }')
           echo Pull requests $PR_NUMBER
           
@@ -65,16 +65,14 @@ jobs:
         run: |
           source <(sudo cat ~/.env)
           export PATH=$PATH:/usr/local/go/bin:/usr/local/go/bin:/root/go/bin:/usr/local/bin
-          export ZkBNB=$(sudo cat ~/zkbnb/deployment/dependency/zkbnb-contract/info/addresses.json  | jq -r '.zkbnbProxy')
-          export AssetGov=$(sudo cat ~/zkbnb/deployment/dependency/zkbnb-contract/info/addresses.json  | jq -r '.assetGovernance')
-          export TestLogLevel=2
-          export L1EndPoint=$L1_ENDPOINT
-          export L2EndPoint=$L2_ENDPOINT
-          export GovKey=${BSC_TESTNET_PRIVATE_KEY}
           
           cd /tmp && sudo rm -rf ./zkbnb-integration-test
           git clone --branch qa https://${GH_PAT}@github.com/bnb-chain/zkbnb-integration-test.git
           cd ./zkbnb-integration-test && go mod tidy
           
-          echo ">>>Start TestSetupSuite'
-          cd tests; go test -v -failfast -parallel 8 ./integration/.../... --test.run '.*Suite' -testify.m ".*_Normal"  -timeout 60m
+          echo ">>>Start TestSetupSuite"
+          ZkBNBGovernanceKey=${BSC_TESTNET_PRIVATE_KEY} \
+            L1EndPoint=${L1_ENDPOINT} \
+            L2EndPoint=${L2_ENDPOINT} \
+            TestLogLevel=2 \
+            go test -v -failfast -parallel 8 ./tests/integration/.../... --test.run '.*Suite' -testify.m ".*_Normal"  -timeout 60m
