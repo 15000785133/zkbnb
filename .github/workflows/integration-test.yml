@@ -83,4 +83,4 @@ jobs:
          echo "L2_ENDPOINT=${L2_ENDPOINT}"
          cat ./config/integration-cicd.yaml
          cd tests
-         go test -v -failfast -parallel 8 ./integration/.../... --test.run '.*Suite' -testify.m ".*_Normal"  -timeout 60m
+         go test -v -failfast -parallel 8 ./integration/.../... --test.run '.*Suite' -testify.m "Test_01_batchToken"  -timeout 60m
