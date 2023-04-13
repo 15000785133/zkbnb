@@ -8,7 +8,7 @@
 # Attention: Set the following variables to the right one before running!!!
 WORKDIR=$(cd `dirname $0`/..; pwd)
 KEY_PATH=${WORKDIR}/.zkbnb
-ZkBNB_CONTRACT_REPO=https://github.com/15000785133/zkbnb-contract.git
+ZkBNB_CONTRACT_REPO=https://github.com/bnb-chain/zkbnb-contract.git
 ZkBNB_CRYPTO_REPO=https://github.com/15000785133/zkbnb-crypto.git
 BSC_TESTNET_ENDPOINT=https://data-seed-prebsc-2-s2.binance.org:8545
 ZKBNB_CRYPTO_BRANCH=$(cat $WORKDIR/../go.mod | grep github.com/bnb-chain/zkbnb-crypto | awk -F" " '{print $2}' | awk -F"-" '{if ($3 != "") print $3;else print $1;}')
