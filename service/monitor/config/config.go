@@ -16,6 +16,7 @@ type Config struct {
 		ConfirmBlocksCount      uint64
 		MaxHandledBlocksCount   int64
 		KeptHistoryBlocksCount  int64 // KeptHistoryBlocksCount define the count of blocks to keep in table, old blocks will be cleaned
+		BlockProcessThreshold   int64 // BlockProcessThreshold define the threshold value to warn the unverified block count
 	}
 	CacheRedis       cache.CacheConf
 	AccountCacheSize int

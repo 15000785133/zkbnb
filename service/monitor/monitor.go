@@ -58,7 +58,6 @@ func Run(configFile string) error {
 		if err != nil {
 			logx.Severef("monitor governance blocks error, %v", err)
 		}
-
 	}); err != nil {
 		logx.Severe("failed to start monitor governance block task, %v", err)
 		panic("failed to start monitor governance block task, err:" + err.Error())
@@ -73,6 +72,17 @@ func Run(configFile string) error {
 	}); err != nil {
 		logx.Severe("failed to start clean history blocks, %v", err)
 		panic("failed to start clean history blocks, err:" + err.Error())
+	}
+
+	// monitor system and business statement
+	if _, err := cronJob.AddFunc("@every 10s", func() {
+		err := m.MonitorSystemAndBusiness()
+		if err != nil {
+			logx.Severef("monitor system and business statement error, %v", err)
+		}
+	}); err != nil {
+		logx.Severe(err)
+		panic(err)
 	}
 
 	cronJob.Start()
