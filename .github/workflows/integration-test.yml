@@ -74,7 +74,7 @@ jobs:
          export PATH=$PATH:/usr/local/go/bin:/usr/local/go/bin:/root/go/bin:/usr/local/bin
          
          cd /tmp && sudo rm -rf ./zkbnb-integration-test
-         git clone --branch qa https://${GH_PAT}@github.com/bnb-chain/zkbnb-integration-test.git
+         git clone --branch r_zns_d https://${GH_PAT}@github.com/bnb-chain/zkbnb-integration-test.git
          cd ./zkbnb-integration-test && go mod tidy
          
          echo ">>>Start TestSetupSuite"
