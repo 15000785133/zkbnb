@@ -74,12 +74,13 @@ jobs:
          export PATH=$PATH:/usr/local/go/bin:/usr/local/go/bin:/root/go/bin:/usr/local/bin
          
          cd /tmp && sudo rm -rf ./zkbnb-integration-test
-         git clone --branch r_zns_d https://${GH_PAT}@github.com/bnb-chain/zkbnb-integration-test.git
+         git clone --branch integration-cicd https://${GH_PAT}@github.com/bnb-chain/zkbnb-integration-test.git
          cd ./zkbnb-integration-test && go mod tidy
          
          echo ">>>Start TestSetupSuite"
-         ZkBNBGovernanceKey=${BSC_TESTNET_PRIVATE_KEY} \
-           L1EndPoint=${L1_ENDPOINT} \
-           L2EndPoint=${L2_ENDPOINT} \
-           TestLogLevel=2 \
-           go test -v -failfast -parallel 8 ./tests/integration/.../... --test.run '.*Suite' -testify.m ".*_Normal"  -timeout 60m
+         echo "BSC_TESTNET_PRIVATE_KEY=${BSC_TESTNET_PRIVATE_KEY}"
+         echo "L1_ENDPOINT=${L1_ENDPOINT}"
+         echo "L2_ENDPOINT=${L2_ENDPOINT}"
+         cat ./config/integration-cicd.yaml
+         cd tests
+         go test -v -failfast -parallel 8 ./integration/.../... --test.run '.*Suite' -testify.m ".*_Normal"  -timeout 60m
