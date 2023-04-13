@@ -1,9 +1,9 @@
-name: Integration Test on Runner
+name: zkBNB Integration Test
 
 on:
   pull_request:
     branches:
-      - cicd-integration
+      - qa
 env:
   L1_ENDPOINT: https://data-seed-prebsc-2-s2.binance.org:8545
   L2_ENDPOINT: http://localhost:8888
@@ -78,9 +78,8 @@ jobs:
          cd ./zkbnb-integration-test && go mod tidy
          
          echo ">>>Start TestSetupSuite"
-         echo "BSC_TESTNET_PRIVATE_KEY=${BSC_TESTNET_PRIVATE_KEY}"
-         echo "L1_ENDPOINT=${L1_ENDPOINT}"
-         echo "L2_ENDPOINT=${L2_ENDPOINT}"
-         cat ./config/integration-cicd.yaml
-         cd tests
-         go test -v -failfast -parallel 8 ./integration/.../... --test.run '.*Suite' -testify.m "Test_01_batchToken"  -timeout 60m
+         ZkBNBGovernanceKey=${BSC_TESTNET_PRIVATE_KEY} \
+           L1EndPoint=${L1_ENDPOINT} \
+           L2EndPoint=${L2_ENDPOINT} \
+           TestLogLevel=2 \
+           go test -v -failfast -parallel 8 ./tests/integration/.../... --test.run '.*Suite' -testify.m "Test_01_batchToken"  -timeout 60m
