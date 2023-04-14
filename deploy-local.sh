@@ -31,7 +31,13 @@ VALIDATORS=
 TREASURY_ACCOUNT_ADDRESS=
 # gas account address, the default value is the second validator's address
 GAS_ACCOUNT_ADDRESS=
+# commit  address, the default value is commit to bnb contract address
+COMMIT_ADDRESS=
+# verify  address, the default value is verify to bnb contract address
+VERIFY_ADDRESS=
+
 ZKBNB_OPTIONAL_BLOCK_SIZES=1,10
+ZKBNB_R1CS_BATCH_SIZE=100000
 
 export PATH=$PATH:/usr/local/go/bin:/usr/local/go/bin:/root/go/bin
 echo '0. stop old database/redis and docker run new database/redis'
@@ -51,7 +57,7 @@ export PATH=$PATH:/usr/local/go/bin/
 cd ~
 rm -rf ${DEPLOY_PATH}-bak && mv ${DEPLOY_PATH} ${DEPLOY_PATH}-bak
 mkdir -p ${DEPLOY_PATH} && cd ${DEPLOY_PATH}
-git clone --branch testnet  https://github.com/bnb-chain/zkbnb-contract.git
+git clone --branch develop  https://github.com/bnb-chain/zkbnb-contract.git
 git clone --branch testnet https://github.com/bnb-chain/zkbnb-crypto.git
 cp -r ${ZkBNB_REPO_PATH} ${DEPLOY_PATH}
 
@@ -61,7 +67,7 @@ if [ $flag = "new" ]; then
   echo "new crypto env"
   echo '2. start generate zkbnb.vk and zkbnb.pk'
   cd ${DEPLOY_PATH}
-  cd zkbnb-crypto && go test ./circuit/solidity -timeout 99999s -run TestExportSol -blocksizes=${ZKBNB_OPTIONAL_BLOCK_SIZES}
+  cd zkbnb-crypto && go test ./circuit/solidity -timeout 99999s -run TestExportSol -blocksizes=${ZKBNB_OPTIONAL_BLOCK_SIZES} -batchsize=${ZKBNB_R1CS_BATCH_SIZE}
   cd ${DEPLOY_PATH}
   mkdir -p $KEY_PATH
   cp -r ./zkbnb-crypto/circuit/solidity/* $KEY_PATH
@@ -126,6 +132,11 @@ sed -i -e "s/BUSDToken: .*/BUSDToken: ${BUSDContractAddr}/" ${DEPLOY_PATH}/zkbnb
 DefaultNftFactoryAddr=`cat ${DEPLOY_PATH}/zkbnb-contract/info/addresses.json  | jq -r '.DefaultNftFactory'`
 sed -i -e "s/DefaultNftFactory: .*/DefaultNftFactory: ${DefaultNftFactoryAddr}/" ${DEPLOY_PATH}/zkbnb/tools/dbinitializer/contractaddr.yaml
 
+sed -i -e "s/CommitAddress: .*/CommitAddress: ${COMMIT_ADDRESS}/" ${DEPLOY_PATH}/zkbnb/tools/dbinitializer/contractaddr.yaml
+
+sed -i -e "s/VerifyAddress: .*/VerifyAddress: ${VERIFY_ADDRESS}/" ${DEPLOY_PATH}/zkbnb/tools/dbinitializer/contractaddr.yaml
+
+
  cd ${DEPLOY_PATH}/zkbnb/
  make api-server
 cd ${DEPLOY_PATH}/zkbnb && go mod tidy
@@ -151,6 +162,7 @@ KeyPath: [${PROVING_KEYS}]
 
 BlockConfig:
   OptionalBlockSizes: [${ZKBNB_OPTIONAL_BLOCK_SIZES}]
+  R1CSBatchSize: ${ZKBNB_R1CS_BATCH_SIZE}
 
 TreeDB:
   Driver: memorydb
