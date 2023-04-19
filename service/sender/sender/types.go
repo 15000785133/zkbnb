@@ -18,7 +18,6 @@ package sender
 
 import (
 	"encoding/json"
-	types2 "github.com/bnb-chain/zkbnb-crypto/circuit/types"
 	"github.com/bnb-chain/zkbnb/common/log"
 	"github.com/bnb-chain/zkbnb/dao/tx"
 	"math/big"
@@ -41,6 +40,7 @@ import (
 const (
 	EventNameBlockCommit       = "BlockCommit"
 	EventNameBlockVerification = "BlockVerification"
+	SentBlockToL1ErrorPrefix   = "SentBlockToL1ErrorPrefix" // key for cache: SentBlockToL1ErrorPrefix
 )
 
 var (
@@ -55,7 +55,7 @@ var (
 	zkbnbLogBlocksRevertSigHash      = crypto.Keccak256Hash(zkbnbLogBlocksRevertSig)
 )
 
-func defaultBlockHeader() zkbnb.StorageStoredBlockInfo {
+func DefaultBlockHeader() zkbnb.StorageStoredBlockInfo {
 	var (
 		pendingOnChainOperationsHash [32]byte
 		stateRoot                    [32]byte
@@ -118,7 +118,7 @@ func ConvertBlocksForCommitToCommitBlockInfos(oBlocks []*compressedblock.Compres
 
 		commitBlock := zkbnb.ZkBNBCommitBlockInfo{
 			NewStateRoot:      newStateRoot,
-			PublicData:        compressPublicData(oBlock.PublicData),
+			PublicData:        common.FromHex(oBlock.PublicData),
 			Timestamp:         big.NewInt(oBlock.Timestamp),
 			OnchainOperations: onChainOperations,
 			BlockNumber:       uint32(oBlock.BlockHeight),
@@ -147,35 +147,4 @@ func ConvertBlocksToVerifyAndExecuteBlockInfos(oBlocks []*block.Block) (verifyAn
 		verifyAndExecuteBlocks = append(verifyAndExecuteBlocks, verifyAndExecuteBlock)
 	}
 	return verifyAndExecuteBlocks, nil
-}
-
-func compressPublicData(originPubData string) []byte {
-
-	pubDataBytes := common.FromHex(originPubData)
-	pubDataTotalCount := len(pubDataBytes)
-	txBytesPerPubData := types2.PubDataBitsSizePerTx / 8
-	if pubDataTotalCount%txBytesPerPubData != 0 {
-		return pubDataBytes
-	}
-
-	txCountInPubData := pubDataTotalCount / txBytesPerPubData
-
-	resPubData := make([]byte, 0)
-	for i := 0; i < txCountInPubData; i++ {
-		subPubData := pubDataBytes[i*txBytesPerPubData : (i+1)*txBytesPerPubData]
-		if isNotEmptyTx(subPubData) {
-			resPubData = append(resPubData, subPubData...)
-		}
-	}
-
-	return resPubData
-}
-
-func isNotEmptyTx(txPubData []byte) bool {
-	for i := 0; i < len(txPubData); i++ {
-		if txPubData[i] != 0 {
-			return true
-		}
-	}
-	return false
 }

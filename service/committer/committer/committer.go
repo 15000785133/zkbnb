@@ -290,6 +290,7 @@ func (c *Committer) executeTxFunc() error {
 			subPendingTxs = nil
 		} else {
 			pendingTxs = c.getPoolTxsFromQueue()
+			c.preLoadAccountAndNft(pendingTxs)
 		}
 
 		for len(pendingTxs) == 0 {
@@ -303,6 +304,7 @@ func (c *Committer) executeTxFunc() error {
 
 			time.Sleep(100 * time.Millisecond)
 			pendingTxs = c.getPoolTxsFromQueue()
+			c.preLoadAccountAndNft(pendingTxs)
 		}
 
 		pendingDeletePoolTxs := make([]*tx.Tx, 0, len(pendingTxs))
@@ -1164,6 +1166,16 @@ func (c *Committer) getLatestExecutedRequestId() (int64, error) {
 		return -1, nil
 	}
 	return latestTx.L1RequestId, nil
+}
+
+func (c *Committer) preLoadAccountAndNft(txs []*tx.Tx) {
+	accountIndexMap := make(map[int64]bool, 0)
+	nftIndexMap := make(map[int64]bool, 0)
+	addressMap := make(map[string]bool, 0)
+	for _, poolTx := range txs {
+		c.bc.PreApplyTransaction(poolTx, accountIndexMap, nftIndexMap, addressMap)
+	}
+	c.bc.Statedb.PreLoadAccountAndNft(accountIndexMap, nftIndexMap, addressMap)
 }
 
 func (c *Committer) PendingTxNum() {
