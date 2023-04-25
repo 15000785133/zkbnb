@@ -17,39 +17,23 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/zeromicro/go-zero/core/logx"
-	"gorm.io/gorm"
-
 	"github.com/bnb-chain/zkbnb/common/chain"
 	"github.com/bnb-chain/zkbnb/core"
 	"github.com/bnb-chain/zkbnb/dao/block"
 	"github.com/bnb-chain/zkbnb/dao/tx"
+	"github.com/bnb-chain/zkbnb/service/committer/config"
 	"github.com/bnb-chain/zkbnb/types"
+	"github.com/zeromicro/go-zero/core/logx"
+	"gorm.io/gorm"
 )
 
 const (
 	MaxPackedInterval = 60 * 1
 )
 
-type Config struct {
-	core.ChainConfig
-
-	BlockConfig struct {
-		OptionalBlockSizes []int
-		//second
-		MaxPackedInterval     int    `json:",optional"`
-		SaveBlockDataPoolSize int    `json:",optional"`
-		RollbackOnly          bool   `json:",optional"`
-		FunctionNameTest      string `json:",optional"`
-		FeatureTest           string `json:",optional"`
-	}
-	LogConf logx.LogConf
-	IpfsUrl string
-}
-
 type Committer struct {
 	running              bool
-	config               *Config
+	config               *config.Config
 	maxTxsPerBlock       int
 	maxCommitterInterval int
 	optionalBlockSizes   []int
@@ -78,7 +62,7 @@ type UpdatePoolTx struct {
 //work flow: pullPoolTxsToQueue->executeTxFunc->updatePoolTxFunc->preSaveBlockDataFunc
 //->updateAssetTreeFunc->updateAccountAndNftTreeFunc->saveBlockDataFunc->finalSaveBlockDataFunc
 
-func NewCommitter(config *Config) (*Committer, error) {
+func NewCommitter(config *config.Config) (*Committer, error) {
 	if len(config.BlockConfig.OptionalBlockSizes) == 0 {
 		return nil, types.AppErrNilOptionalBlockSize
 	}
@@ -89,7 +73,7 @@ func NewCommitter(config *Config) (*Committer, error) {
 	}
 
 	configAll := core.Config{FunctionNameTest: config.BlockConfig.FunctionNameTest, FeatureTest: config.BlockConfig.FeatureTest}
-	bc, err := core.NewBlockChain(&config.ChainConfig, configAll, "committer")
+	bc, err := core.NewBlockChain(&config.ChainConfig, "committer")
 	if err != nil {
 		return nil, fmt.Errorf("new blockchain error: %v", err)
 	}
@@ -826,6 +810,7 @@ func (c *Committer) saveBlockDataFunc(blockStates *block.BlockStates) error {
 				}
 				common.Test(c.config.BlockConfig.FeatureTest, c.config.BlockConfig.FunctionNameTest, "BatchUpdateNftIndexOrCollectionId")
 			}
+
 			err = c.bc.DB().TxPoolModel.DeleteTxsBatch(poolTxIds, tx.StatusExecuted, blockHeight)
 			metrics.DeletePoolTxMetrics.Set(float64(time.Since(start).Milliseconds()))
 			if err != nil {
