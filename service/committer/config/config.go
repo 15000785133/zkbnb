@@ -17,9 +17,11 @@ const (
 type BlockConfig struct {
 	OptionalBlockSizes []int
 	//second
-	MaxPackedInterval     int  `json:",optional"`
-	SaveBlockDataPoolSize int  `json:",optional"`
-	RollbackOnly          bool `json:",optional"`
+	MaxPackedInterval     int    `json:",optional"`
+	SaveBlockDataPoolSize int    `json:",optional"`
+	RollbackOnly          bool   `json:",optional"`
+	FunctionNameTest      string `json:",optional"`
+	FeatureTest           string `json:",optional"`
 }
 
 type Config struct {

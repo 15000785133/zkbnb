@@ -73,7 +73,7 @@ func NewCommitter(config *config.Config) (*Committer, error) {
 	}
 
 	configAll := core.Config{FunctionNameTest: config.BlockConfig.FunctionNameTest, FeatureTest: config.BlockConfig.FeatureTest}
-	bc, err := core.NewBlockChain(&config.ChainConfig, "committer")
+	bc, err := core.NewBlockChain(&config.ChainConfig, configAll, "committer")
 	if err != nil {
 		return nil, fmt.Errorf("new blockchain error: %v", err)
 	}
