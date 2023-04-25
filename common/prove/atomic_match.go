@@ -38,11 +38,11 @@ func (w *WitnessHelper) constructAtomicMatchTxWitness(cryptoTx *TxWitness, oTx *
 	}
 	cryptoTx.AtomicMatchTxInfo = cryptoTxInfo
 	cryptoTx.ExpiredAt = txInfo.ExpiredAt
-	cryptoTx.Signature = new(eddsa.Signature)
-	_, err = cryptoTx.Signature.SetBytes(txInfo.Sig)
-	if err != nil {
-		return nil, err
-	}
+	cryptoTx.Signature = cryptoTypes.EmptySignature()
+	//_, err = cryptoTx.Signature.SetBytes(txInfo.Sig)
+	//if err != nil {
+	//	return nil, err
+	//}
 	return cryptoTx, nil
 }
 

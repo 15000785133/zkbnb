@@ -23,7 +23,6 @@ import (
 	common2 "github.com/bnb-chain/zkbnb/common"
 	"github.com/bnb-chain/zkbnb/dao/tx"
 	"github.com/bnb-chain/zkbnb/types"
-	"github.com/consensys/gnark-crypto/ecc/bn254/twistededwards/eddsa"
 )
 
 func (w *WitnessHelper) constructTransferTxWitness(cryptoTx *TxWitness, oTx *tx.Tx) (*TxWitness, error) {
@@ -37,11 +36,11 @@ func (w *WitnessHelper) constructTransferTxWitness(cryptoTx *TxWitness, oTx *tx.
 	}
 	cryptoTx.TransferTxInfo = cryptoTxInfo
 	cryptoTx.ExpiredAt = oTx.ExpiredAt
-	cryptoTx.Signature = new(eddsa.Signature)
-	_, err = cryptoTx.Signature.SetBytes(txInfo.Sig)
-	if err != nil {
-		return nil, err
-	}
+	cryptoTx.Signature = cryptoTypes.EmptySignature()
+	//_, err = cryptoTx.Signature.SetBytes(txInfo.Sig)
+	//if err != nil {
+	//	return nil, err
+	//}
 	return cryptoTx, nil
 }
 

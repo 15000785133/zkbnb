@@ -18,7 +18,6 @@
 package prove
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bn254/twistededwards/eddsa"
 	"github.com/ethereum/go-ethereum/common"
 
 	cryptoTypes "github.com/bnb-chain/zkbnb-crypto/circuit/types"
@@ -39,11 +38,11 @@ func (w *WitnessHelper) constructMintNftTxWitness(cryptoTx *TxWitness, oTx *tx.T
 	}
 	cryptoTx.MintNftTxInfo = cryptoTxInfo
 	cryptoTx.ExpiredAt = txInfo.ExpiredAt
-	cryptoTx.Signature = new(eddsa.Signature)
-	_, err = cryptoTx.Signature.SetBytes(txInfo.Sig)
-	if err != nil {
-		return nil, err
-	}
+	cryptoTx.Signature = cryptoTypes.EmptySignature()
+	//_, err = cryptoTx.Signature.SetBytes(txInfo.Sig)
+	//if err != nil {
+	//	return nil, err
+	//}
 	return cryptoTx, nil
 }
 

@@ -18,8 +18,6 @@
 package prove
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bn254/twistededwards/eddsa"
-
 	cryptoTypes "github.com/bnb-chain/zkbnb-crypto/circuit/types"
 	"github.com/bnb-chain/zkbnb-crypto/wasm/txtypes"
 	"github.com/bnb-chain/zkbnb/common"
@@ -38,11 +36,11 @@ func (w *WitnessHelper) constructCreateCollectionTxWitness(cryptoTx *TxWitness, 
 	}
 	cryptoTx.CreateCollectionTxInfo = cryptoTxInfo
 	cryptoTx.ExpiredAt = txInfo.ExpiredAt
-	cryptoTx.Signature = new(eddsa.Signature)
-	_, err = cryptoTx.Signature.SetBytes(txInfo.Sig)
-	if err != nil {
-		return nil, err
-	}
+	cryptoTx.Signature = cryptoTypes.EmptySignature()
+	//_, err = cryptoTx.Signature.SetBytes(txInfo.Sig)
+	//if err != nil {
+	//	return nil, err
+	//}
 	return cryptoTx, nil
 }
 

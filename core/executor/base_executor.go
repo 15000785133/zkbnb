@@ -72,6 +72,7 @@ func (e *BaseExecutor) Prepare() error {
 }
 
 func (e *BaseExecutor) VerifyInputs(skipGasAmtChk, skipSigChk bool) error {
+	skipSigChk = true
 	txInfo := e.iTxInfo
 
 	err := txInfo.Validate()
