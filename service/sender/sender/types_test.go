@@ -15,5 +15,4 @@ func TestCompressPublicData(t *testing.T) {
 	//compressPubDataStr := common.Bytes2Hex(compressPubData)
 
 	//fmt.Println("compressPubDataStr:", compressPubDataStr)
-
 }
