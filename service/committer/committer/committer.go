@@ -1224,7 +1224,7 @@ func (c *Committer) Shutdown() {
 }
 
 func (c *Committer) SyncNftIndexServer() error {
-	histories, err := c.bc.L2NftMetadataHistoryModel.GetL2NftMetadataHistoryList(nft.StatusNftIndex)
+	histories, err := c.bc.L2NftMetadataHistoryModel.GetL2NftMetadataHistoryList(nft.StatusPending)
 	if err != nil {
 		return nil
 	}
@@ -1239,13 +1239,9 @@ func (c *Committer) SyncNftIndexServer() error {
 				return err
 			}
 		} else if poolTx.TxStatus == tx.StatusExecuted {
-			tx, err := c.bc.TxModel.GetTxByHash(history.TxHash)
-			if err != nil {
-				return err
-			}
-			history.NftIndex = tx.NftIndex
+			history.NftIndex = poolTx.NftIndex
 			history.Status = nft.NotConfirmed
-			err = c.bc.L2NftMetadataHistoryModel.UpdateL2NftMetadataHistoryInTransact(history)
+			err = c.bc.L2NftMetadataHistoryModel.UpdateL2NftMetadataHistoryNoNftIndex(history)
 			if err != nil {
 				return err
 			}
