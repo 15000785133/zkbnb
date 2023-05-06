@@ -161,7 +161,6 @@ func NewBlockChain(config *ChainConfig, configAll Config, moduleName string) (*B
 
 	common2.Test(configAll.FeatureTest, configAll.FunctionNameTest, "verifyRollbackTableDataFunc")
 
-	err = verifyRollbackTreesFunc(bc, bc.currentBlock)
 	err = verifyRollbackTreesFunc(bc, bc.currentBlock, accountIndexMap)
 	if err != nil {
 		return nil, err
