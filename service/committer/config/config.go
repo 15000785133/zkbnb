@@ -48,7 +48,7 @@ func InitSystemConfiguration(config *Config, configFile string) error {
 }
 
 func InitSystemConfigFromEnvironment(c *Config) error {
-	commonConfig, err := apollo.InitCommonConfig()
+	commonConfig, err := apollo.InitCommonConfig(CommitterAppId)
 	if err != nil {
 		return err
 	}
