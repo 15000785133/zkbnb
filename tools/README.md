@@ -18,7 +18,7 @@ sh run_whole_rolllback.sh 80
 
 go run ./cmd/zkbnb/main.go rollbackwitnesssmt --height 5 --config ./tools/rollbackwitnesssmt/etc/config.yaml
 
-redis-cli -h 127.0.0.1 -p 6666 flushdb
+redis-cli -h 10.23.4.169 -p 6666 flushdb
 
 
 
@@ -35,3 +35,7 @@ redis-cli -h 127.0.0.1 -p 6666 flushdb
 ./zkbnb rollback --height 493
 
 AWS_PROFILE=bnbcloud-dev;AWS_SDK_LOAD_CONFIG=true;APOLLO_CLUSTER=chaos;ENV=chaos
+
+./zkbnb revertblock  --height 4588 --byBlock false
+
+byBlock

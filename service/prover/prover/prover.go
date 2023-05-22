@@ -113,19 +113,21 @@ func NewProver(c config.Config) (*Prover, error) {
 		Sources:  []gorm.Dialector{postgres.Open(masterDataSource)},
 		Replicas: []gorm.Dialector{postgres.Open(slaveDataSource)},
 	}))
-	redisConn := redis.New(c.CacheRedis[0].Host, WithRedis(c.CacheRedis[0].Type, c.CacheRedis[0].Pass))
-	prover := &Prover{
-		running:           true,
-		Config:            c,
-		RedisConn:         redisConn,
-		DB:                db,
-		SysConfigModel:    sysconfig.NewSysConfigModel(db),
-		BlockWitnessModel: blockwitness.NewBlockWitnessModel(db),
-		ProofModel:        proof.NewProofModel(db),
+	redisConn, err := redis.NewRedis(redis.RedisConf{Host: c.CacheRedis[0].Host, Pass: c.CacheRedis[0].Pass, Type: c.CacheRedis[0].Type})
+	if err != nil {
+		logx.Errorf("fail to new redis instance, error: %s", err.Error())
+		panic("fail to new redis instance, error" + err.Error())
 	}
 
-	if err := prover.loadOptionalBlockSizes(); err != nil {
-		panic("invalid OptionalBlockSizes:" + err.Error())
+	prover := &Prover{
+		running:            true,
+		Config:             c,
+		RedisConn:          redisConn,
+		DB:                 db,
+		SysConfigModel:     sysconfig.NewSysConfigModel(db),
+		BlockWitnessModel:  blockwitness.NewBlockWitnessModel(db),
+		ProofModel:         proof.NewProofModel(db),
+		OptionalBlockSizes: c.BlockConfig.OptionalBlockSizes,
 	}
 
 	prover.ProvingKeys = make([][]groth16.ProvingKey, len(prover.OptionalBlockSizes))
@@ -321,29 +323,6 @@ func (p *Prover) getWitness() (*blockwitness.BlockWitness, error) {
 		return nil, err
 	}
 	return blockWitness, nil
-}
-
-func (p *Prover) loadOptionalBlockSizes() error {
-	if optionalBlockSizeConfig, err := p.SysConfigModel.GetSysConfigByName(types.OptionalBlockSizes); err != nil {
-		logx.Errorf("failed to load optionalBlockSizes configuration, err:%v", err)
-		return err
-	} else {
-		optionalBlockSizeValue := optionalBlockSizeConfig.Value
-		optionalBlockSizes := make([]int, 2)
-		if err := json.Unmarshal([]byte(optionalBlockSizeValue), &optionalBlockSizes); err != nil {
-			return err
-		}
-
-		if len(optionalBlockSizes) == 0 {
-			return fmt.Errorf("failed to load optionalBlockSizes configuration, optionalBlockSizes is empty")
-		}
-
-		p.OptionalBlockSizes = optionalBlockSizes
-		if !IsBlockSizesSorted(p.OptionalBlockSizes) {
-			return fmt.Errorf("failed to load optionalBlockSizes configuration, invalid OptionalBlockSizes")
-		}
-	}
-	return nil
 }
 
 func (p *Prover) Shutdown() {

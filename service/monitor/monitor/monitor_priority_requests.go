@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"github.com/bnb-chain/zkbnb/common/monitor"
 	"github.com/bnb-chain/zkbnb/dao/dbcache"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -38,6 +39,7 @@ func (m *Monitor) MonitorPriorityRequests() error {
 		if err != types.DbErrNotFound {
 			return err
 		}
+		time.Sleep(5 * time.Second)
 		return nil
 	}
 	var (
@@ -169,7 +171,17 @@ func (m *Monitor) MonitorPriorityRequests() error {
 		}
 		poolTx.TxInfo = string(txInfoBytes)
 		poolTx.L1RequestId = request.RequestId
-		pendingNewPoolTxs = append(pendingNewPoolTxs, poolTx)
+
+		_, err := m.TxPoolModel.GetTxUnscopedByTxHash(poolTx.TxHash)
+		if err != nil {
+			if err == types.DbErrNotFound {
+				pendingNewPoolTxs = append(pendingNewPoolTxs, poolTx)
+			} else {
+				return fmt.Errorf("fail to get pool tx by TxHash=%s,L1TxHash=%s,L1RequestId=%d,err=%v", poolTx.TxHash, request.L1TxHash, request.RequestId, err)
+			}
+		} else {
+			logx.Infof("This tx hash already exists in the pool tx table,TxHash=%s,L1TxHash=%s,L1RequestId=%d", poolTx.TxHash, request.L1TxHash, request.RequestId)
+		}
 	}
 
 	// update db

@@ -37,7 +37,6 @@ func InitNftTree(
 	nftHistoryModel nft.L2NftHistoryModel,
 	blockHeight int64,
 	ctx *Context,
-	fromHistory bool,
 ) (
 	nftTree bsmt.SparseMerkleTree, err error,
 ) {
@@ -55,7 +54,7 @@ func InitNftTree(
 			return nftTree, nil
 		}
 		var maxNftIndex int64
-		if fromHistory {
+		if ctx.fromHistory {
 			maxNftIndex, err = nftHistoryModel.GetMaxNftIndex(blockHeight)
 			if err != nil && err != types.DbErrNotFound {
 				logx.WithContext(ctxLog).Errorf("unable to get latest nft assets: %s", err.Error())
@@ -72,9 +71,9 @@ func InitNftTree(
 		start := time.Now()
 		logx.WithContext(ctxLog).Infof("reloadNftTree start")
 		totalTask := 0
-		resultChan := make(chan *treeUpdateResp, 1)
+		resultChan := make(chan *treeUpdateResp, common2.MaxInt64(maxNftIndex/int64(ctx.BatchReloadSize()), 1))
 		defer close(resultChan)
-		pool, err := ants.NewPool(100, ants.WithPanicHandler(func(p interface{}) {
+		pool, err := ants.NewPool(ctx.dbRoutineSize, ants.WithPanicHandler(func(p interface{}) {
 			panic("worker exits from a panic")
 		}))
 		for i := 0; int64(i) <= maxNftIndex; i += ctx.BatchReloadSize() {
@@ -86,7 +85,7 @@ func InitNftTree(
 			err := func(fromNftIndex int64, toNftIndex int64) error {
 				return pool.Submit(func() {
 					pendingAccountItem, err := loadNftTreeFromRDB(l2NftModel,
-						nftHistoryModel, blockHeight, fromNftIndex, toNftIndex, fromHistory, ctxLog)
+						nftHistoryModel, blockHeight, fromNftIndex, toNftIndex, ctx.fromHistory, ctxLog)
 					if err != nil {
 						logx.Severef("loadNftTreeFromRDB failed:%s", err.Error())
 						resultChan <- &treeUpdateResp{
@@ -112,16 +111,25 @@ func InitNftTree(
 			}
 			pendingAccountItem = append(pendingAccountItem, result.pendingAccountItem...)
 		}
+		logx.Infof("load nft data. cost time %v", time.Since(start))
+
+		nftTreeStart := time.Now()
+		logx.WithContext(ctxLog).Infof("start update nft smt nft count=%d", len(pendingAccountItem))
+
 		err = nftTree.MultiSetWithVersion(pendingAccountItem, bsmt.Version(blockHeight))
 		if err != nil {
 			logx.WithContext(ctxLog).Errorf("unable to write nft asset to tree: %s", err.Error())
 			return nil, err
 		}
+
+		logx.WithContext(ctxLog).Infof("start nftTree CommitWithNewVersion")
 		_, err = nftTree.CommitWithNewVersion(nil, &newVersion)
 		if err != nil {
 			logx.WithContext(ctxLog).Errorf("unable to commit nft tree: %s", err.Error())
 			return nil, err
 		}
+		logx.WithContext(ctxLog).Infof("end update nft smt. cost time %v", time.Since(nftTreeStart))
+
 		logx.Infof("reloadNftTree end. cost time %v", time.Since(start))
 		return nftTree, nil
 	}
@@ -151,16 +159,14 @@ func loadNftTreeFromRDB(
 	pendingAccountItem := make([]bsmt.Item, 0)
 	var nftAssets []*nft.L2Nft
 	var err error
+	loadDbStart := time.Now()
 	if fromHistory {
 		nftAssets = make([]*nft.L2Nft, 0)
-		_, nftHistories, err := nftHistoryModel.GetLatestNftsByBlockHeight(blockHeight,
+		_, nftHistories, err := getNftHistoriesByNftIndexRange(nftHistoryModel, blockHeight,
 			fromNftIndex, toNftIndex)
-		if err != nil {
+		if err != nil && err != types.DbErrNotFound {
 			logx.WithContext(ctx).Errorf("unable to get latest nft assets: %s", err.Error())
 			return nil, err
-		}
-		if len(nftHistories) == 0 {
-			return pendingAccountItem, nil
 		}
 		for _, nftHistory := range nftHistories {
 			nftAsset := &nft.L2Nft{
@@ -176,12 +182,15 @@ func loadNftTreeFromRDB(
 			nftAssets = append(nftAssets, nftAsset)
 		}
 	} else {
-		nftAssets, err = l2NftModel.GetByNftIndexRange(fromNftIndex, toNftIndex)
-		if err != nil {
+		nftAssets, err = getNftsByNftIndexRange(l2NftModel, fromNftIndex, toNftIndex)
+		if err != nil && err != types.DbErrNotFound {
 			logx.Errorf("unable to get latest nft assets: %s", err.Error())
 			return nil, err
 		}
 	}
+	logx.WithContext(ctx).Debugf("get nft info from db,cost time %v", time.Since(loadDbStart))
+
+	computeHashStart := time.Now()
 	for _, nftAsset := range nftAssets {
 		ctx := log.UpdateCtxWithKV(ctx, log.NftIndexCtx, nftAsset.NftIndex)
 		nftIndex := nftAsset.NftIndex
@@ -192,6 +201,8 @@ func loadNftTreeFromRDB(
 		}
 		pendingAccountItem = append(pendingAccountItem, bsmt.Item{Key: uint64(nftIndex), Val: hashVal})
 	}
+	logx.WithContext(ctx).Debugf("compute nft hash,cost time %v", time.Since(computeHashStart))
+
 	return pendingAccountItem, nil
 }
 
@@ -230,4 +241,38 @@ func RollBackNftTree(treeHeight int64, nftTree bsmt.SparseMerkleTree) error {
 		}
 	}
 	return nil
+}
+
+func getNftsByNftIndexRange(l2NftModel nft.L2NftModel, fromNftIndex int64, toNftIndex int64) ([]*nft.L2Nft, error) {
+	var err error
+	var nftList []*nft.L2Nft
+	retryCount := 10
+	for retryCount > 0 {
+		nftList, err = l2NftModel.GetByNftIndexRange(fromNftIndex, toNftIndex)
+		if err != nil && err != types.DbErrNotFound {
+			logx.Severef("fail to get nfts by nft index range,fromNftIndex=%d,toNftIndex=%d,err=%s", fromNftIndex, toNftIndex, err.Error())
+			time.Sleep(10 * time.Second)
+			retryCount--
+			continue
+		}
+		break
+	}
+	return nftList, err
+}
+func getNftHistoriesByNftIndexRange(nftHistoryModel nft.L2NftHistoryModel, blockHeight int64, fromNftIndex int64, toNftIndex int64) (int64, []*nft.L2NftHistory, error) {
+	var err error
+	var nftHistories []*nft.L2NftHistory
+	var rowsAffected int64
+	retryCount := 10
+	for retryCount > 0 {
+		rowsAffected, nftHistories, err = nftHistoryModel.GetLatestNftsByBlockHeight(blockHeight, fromNftIndex, toNftIndex)
+		if err != nil && err != types.DbErrNotFound {
+			logx.Severef("fail to get nftHistories by nft index range,fromNftIndex=%d,toNftIndex=%d,err=%s", fromNftIndex, toNftIndex, err.Error())
+			time.Sleep(10 * time.Second)
+			retryCount--
+			continue
+		}
+		break
+	}
+	return rowsAffected, nftHistories, err
 }

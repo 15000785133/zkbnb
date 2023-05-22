@@ -16,9 +16,10 @@ const (
 
 type BlockConfig struct {
 	//second
-	MaxPackedInterval     int    `json:",optional"`
-	SaveBlockDataPoolSize int    `json:",optional"`
-	RollbackOnly          bool   `json:",optional"`
+	MaxPackedInterval      int  `json:",optional"`
+	SaveBlockDataPoolSize  int  `json:",optional"`
+	RollbackOnly           bool `json:",optional"`
+	DisableLoadAllAccounts bool `json:",optional"`
 	FunctionNameTest      string `json:",optional"`
 	FeatureTest           string `json:",optional"`
 }
@@ -73,6 +74,8 @@ func InitSystemConfigFromEnvironment(c *Config) error {
 	c.TreeDB = systemConfig.TreeDB
 	c.LogConf = systemConfig.LogConf
 	c.IpfsUrl = systemConfig.IpfsUrl
+	c.DbBatchSize = systemConfig.DbBatchSize
+	c.DbRoutineSize = systemConfig.DbRoutineSize
 	return nil
 }
 

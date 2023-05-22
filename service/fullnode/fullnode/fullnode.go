@@ -35,6 +35,7 @@ type Fullnode struct {
 func NewFullnode(config *Config) (*Fullnode, error) {
 	configAll := core.Config{FunctionNameTest: "", FeatureTest: ""}
 	bc, err := core.NewBlockChain(&config.ChainConfig, configAll, "fullnode")
+	bc, err := core.NewBlockChain(&config.ChainConfig, 60, "fullnode")
 	if err != nil {
 		return nil, fmt.Errorf("new blockchain error: %v", err)
 	}

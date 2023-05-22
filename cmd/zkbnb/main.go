@@ -369,16 +369,26 @@ func main() {
 						Flags: []cli.Flag{
 							flags.ConfigFlag,
 							flags.ServiceNameFlag,
-							flags.BatchSizeFlag,
+							flags.MetricsEnabledFlag,
+							flags.MetricsHTTPFlag,
+							flags.MetricsPortFlag,
+							flags.PProfEnabledFlag,
+							flags.PProfAddrFlag,
+							flags.PProfPortFlag,
 						},
 						Action: func(cCtx *cli.Context) error {
+							startMetricsServer(cCtx)
 							if !cCtx.IsSet(flags.ServiceNameFlag.Name) {
 								return cli.ShowSubcommandHelp(cCtx)
 							}
+							defer func() {
+								if recoverErr := recover(); recoverErr != nil {
+									logx.Errorf("failed to recover %v", recoverErr)
+								}
+							}()
 							recovery.RecoveryTreeDB(
 								cCtx.String(flags.ConfigFlag.Name),
 								cCtx.String(flags.ServiceNameFlag.Name),
-								cCtx.Int(flags.BatchSizeFlag.Name),
 							)
 							return nil
 						},
@@ -396,7 +406,6 @@ func main() {
 							flags.ConfigFlag,
 							flags.BlockHeightFlag,
 							flags.ServiceNameFlag,
-							flags.BatchSizeFlag,
 							flags.RecoveryFromHistoryFlag,
 							flags.AccountIndexListFlag,
 						},
@@ -409,7 +418,6 @@ func main() {
 								cCtx.String(flags.ConfigFlag.Name),
 								cCtx.Int64(flags.BlockHeightFlag.Name),
 								cCtx.String(flags.ServiceNameFlag.Name),
-								cCtx.Int(flags.BatchSizeFlag.Name),
 								cCtx.Bool(flags.RecoveryFromHistoryFlag.Name), cCtx.String(flags.AccountIndexListFlag.Name),
 							)
 							return nil

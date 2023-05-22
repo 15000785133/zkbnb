@@ -88,7 +88,7 @@ type StateDB struct {
 }
 
 func NewStateDB(treeCtx *tree.Context, chainDb *ChainDB,
-	redisCache dbcache.Cache, cacheConfig *CacheConfig, assetCacheSize int,
+	redisCache dbcache.Cache, cacheConfig *CacheConfig,
 	stateRoot string, accountIndexList []int64, curHeight int64) (*StateDB, error) {
 	err := tree.SetupTreeDB(treeCtx)
 	if err != nil {
@@ -101,8 +101,6 @@ func NewStateDB(treeCtx *tree.Context, chainDb *ChainDB,
 		accountIndexList,
 		curHeight,
 		treeCtx,
-		assetCacheSize,
-		true,
 	)
 
 	if err != nil {
@@ -114,7 +112,6 @@ func NewStateDB(treeCtx *tree.Context, chainDb *ChainDB,
 		chainDb.L2NftHistoryModel,
 		curHeight,
 		treeCtx,
-		true,
 	)
 	if err != nil {
 		logx.Error("dbinitializer nft tree failed:", err)
@@ -620,7 +617,7 @@ type treeUpdateResp struct {
 // UpdateAssetTree compute account asset hash, commit asset smt,compute account leaf hash, compute nft leaf hash
 func (s *StateDB) UpdateAssetTree(stateDataCopy *StateDataCopy) error {
 	taskNum := 0
-	resultChan := make(chan *treeUpdateResp, 1)
+	resultChan := make(chan *treeUpdateResp, len(stateDataCopy.StateCache.dirtyAccountsAndAssetsMap)+len(stateDataCopy.StateCache.dirtyNftMap))
 	defer close(resultChan)
 
 	for accountIndex, assetsMap := range stateDataCopy.StateCache.dirtyAccountsAndAssetsMap {
@@ -693,7 +690,7 @@ func (s *StateDB) UpdateAssetTree(stateDataCopy *StateDataCopy) error {
 // SetAccountAndNftTree multi set account tree with version,multi set nft tree with version
 func (s *StateDB) SetAccountAndNftTree(stateDataCopy *StateDataCopy) error {
 	start := time.Now()
-	resultChan := make(chan *treeUpdateResp, 1)
+	resultChan := make(chan *treeUpdateResp, 2)
 	defer close(resultChan)
 
 	err := gopool.Submit(func() {

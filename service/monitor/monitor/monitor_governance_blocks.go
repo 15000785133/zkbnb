@@ -24,6 +24,7 @@ import (
 	"github.com/bnb-chain/zkbnb/common/monitor"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -96,6 +97,7 @@ func (m *Monitor) MonitorGovernanceBlocks(cli *rpc.ProviderClient) (err error) {
 	}
 	if endHeight < startHeight {
 		logx.Infof("no blocks to sync, startHeight: %d, endHeight: %d", startHeight, endHeight)
+		time.Sleep(5 * time.Second)
 		return nil
 	}
 
@@ -143,8 +145,15 @@ func (m *Monitor) MonitorGovernanceBlocks(cli *rpc.ProviderClient) (err error) {
 				return err
 			}
 
-			l1Events = append(l1Events, l1EventInfo)
-			pendingChanges.l2AssetMap[event.AssetAddress.Hex()] = newL2Asset
+			isAssetExistInDb, err := m.isAssetExistInDb(newL2Asset.L1Address)
+			if err != nil {
+				return err
+			}
+
+			if !isAssetExistInDb {
+				l1Events = append(l1Events, l1EventInfo)
+				pendingChanges.l2AssetMap[event.AssetAddress.Hex()] = newL2Asset
+			}
 		case monitor.GovernanceLogNewGovernorSigHash.Hex():
 			// parse event info
 			var event zkbnb.GovernanceNewGovernor
@@ -160,9 +169,16 @@ func (m *Monitor) MonitorGovernanceBlocks(cli *rpc.ProviderClient) (err error) {
 				ValueType: "string",
 				Comment:   "governor",
 			}
-			// set into array
-			l1Events = append(l1Events, l1EventInfo)
-			pendingChanges.pendingNewSysConfigMap[configInfo.Name] = configInfo
+
+			isSysConfigExistInDb, err := m.isSysConfigExistInDb(configInfo.Name)
+			if err != nil {
+				return err
+			}
+			if !isSysConfigExistInDb {
+				// set into array
+				l1Events = append(l1Events, l1EventInfo)
+				pendingChanges.pendingNewSysConfigMap[configInfo.Name] = configInfo
+			}
 		case monitor.GovernanceLogNewAssetGovernanceSigHash.Hex():
 			// parse event info
 			var event zkbnb.GovernanceNewAssetGovernance
@@ -178,9 +194,16 @@ func (m *Monitor) MonitorGovernanceBlocks(cli *rpc.ProviderClient) (err error) {
 				ValueType: "string",
 				Comment:   "asset governance contract",
 			}
-			// set into array
-			l1Events = append(l1Events, l1EventInfo)
-			pendingChanges.pendingNewSysConfigMap[configInfo.Name] = configInfo
+
+			isSysConfigExistInDb, err := m.isSysConfigExistInDb(configInfo.Name)
+			if err != nil {
+				return err
+			}
+			if !isSysConfigExistInDb {
+				// set into array
+				l1Events = append(l1Events, l1EventInfo)
+				pendingChanges.pendingNewSysConfigMap[configInfo.Name] = configInfo
+			}
 		case monitor.GovernanceLogValidatorStatusUpdateSigHash.Hex():
 			// parse event info
 			var event zkbnb.GovernanceValidatorStatusUpdate
@@ -395,4 +418,26 @@ func (m *Monitor) storeChanges(
 		return fmt.Errorf("store governance monitor info error, err: %v", err)
 	}
 	return nil
+}
+
+func (m *Monitor) isAssetExistInDb(address string) (bool, error) {
+	_, err := m.L2AssetModel.GetAssetByAddress(address)
+	if err != nil {
+		if err == types.DbErrNotFound {
+			return false, nil
+		}
+		return false, fmt.Errorf("unable to get l2 asset by address=%s, err: %v", address, err)
+	}
+	return true, nil
+}
+
+func (m *Monitor) isSysConfigExistInDb(name string) (bool, error) {
+	_, err := m.SysConfigModel.GetSysConfigByName(name)
+	if err != nil {
+		if err == types.DbErrNotFound {
+			return false, nil
+		}
+		return false, fmt.Errorf("unable to get sys config by name=%s, err: %v", name, err)
+	}
+	return true, nil
 }

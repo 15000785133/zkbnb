@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	common2 "github.com/bnb-chain/zkbnb/common"
 	"github.com/bnb-chain/zkbnb/common/apollo"
 	"github.com/bnb-chain/zkbnb/common/metrics"
 	"github.com/bnb-chain/zkbnb/tools/desertexit/config"
@@ -22,8 +23,6 @@ import (
 	"gorm.io/gorm"
 
 	bsmt "github.com/bnb-chain/zkbnb-smt"
-	common2 "github.com/bnb-chain/zkbnb/common"
-
 	"github.com/bnb-chain/zkbnb/common/chain"
 	"github.com/bnb-chain/zkbnb/core/statedb"
 	sdb "github.com/bnb-chain/zkbnb/core/statedb"
@@ -57,8 +56,10 @@ type ChainConfig struct {
 	//second
 	RedisExpiration int `json:",optional"`
 	//nolint:staticcheck
-	CacheConfig statedb.CacheConfig `json:",optional"`
-	TreeDB      TreeDB
+	CacheConfig   statedb.CacheConfig `json:",optional"`
+	TreeDB        TreeDB
+	DbRoutineSize int `json:",optional"`
+	DbBatchSize   int
 }
 
 type Config struct {
@@ -78,7 +79,7 @@ type BlockChain struct {
 	processor        Processor
 }
 
-func NewBlockChain(config *ChainConfig, configAll Config, moduleName string) (*BlockChain, error) {
+func NewBlockChain(config *ChainConfig, configAll Config,maxPackedInterval int, moduleName string) (*BlockChain, error) {
 	masterDataSource := config.Postgres.MasterDataSource
 	slaveDataSource := config.Postgres.SlaveDataSource
 	db, err := gorm.Open(postgres.Open(config.Postgres.MasterDataSource), &gorm.Config{
@@ -101,17 +102,18 @@ func NewBlockChain(config *ChainConfig, configAll Config, moduleName string) (*B
 		ChainDB:     sdb.NewChainDB(db),
 		chainConfig: config,
 	}
-	expiration := dbcache.RedisExpiration
+
+	expiration := 5 * time.Duration(maxPackedInterval) * time.Second
 	if config.RedisExpiration != 0 {
 		expiration = time.Duration(config.RedisExpiration) * time.Second
 	}
-	redisCache := dbcache.NewRedisCache(config.CacheRedis[0].Host, config.CacheRedis[0].Pass, expiration)
-	treeCtx, err := tree.NewContext(moduleName, config.TreeDB.Driver, false, false, config.TreeDB.RoutinePoolSize, &config.TreeDB.LevelDBOption, &config.TreeDB.RedisDBOption)
+	redisCache := dbcache.NewRedisCache(config.CacheRedis, expiration)
+	treeCtx, err := tree.NewContext(moduleName, config.TreeDB.Driver, false, false, config.TreeDB.RoutinePoolSize, &config.TreeDB.LevelDBOption, &config.TreeDB.RedisDBOption, config.TreeDB.AssetTreeCacheSize, true, config.DbRoutineSize)
 	if err != nil {
 		return nil, err
 	}
 	treeCtx.SetOptions(bsmt.BatchSizeLimit(3 * 1024 * 1024))
-
+	treeCtx.SetBatchReloadSize(config.DbBatchSize)
 	var statuses = []int{block.StatusPending, block.StatusCommitted, block.StatusVerifiedAndExecuted}
 	curHeight, err := bc.BlockModel.GetLatestHeight(statuses)
 	if err != nil {
@@ -130,7 +132,7 @@ func NewBlockChain(config *ChainConfig, configAll Config, moduleName string) (*B
 	}
 	common2.Test(configAll.FeatureTest, configAll.FunctionNameTest, "NewStateDBBefore")
 
-	bc.Statedb, err = sdb.NewStateDB(treeCtx, bc.ChainDB, redisCache, &config.CacheConfig, config.TreeDB.AssetTreeCacheSize, bc.currentBlock.StateRoot, accountIndexList, curHeight)
+	bc.Statedb, err = sdb.NewStateDB(treeCtx, bc.ChainDB, redisCache, &config.CacheConfig, bc.currentBlock.StateRoot, accountIndexList, curHeight)
 	if err != nil {
 		return nil, err
 	}
@@ -444,9 +446,20 @@ func rollbackFunc(configAll Config, bc *BlockChain, accountIndexList []int64, nf
 			for k := range deleteAccountIndexMap {
 				deleteAccountIndexList = append(deleteAccountIndexList, k)
 			}
-			err := bc.AccountModel.DeleteByIndexesInTransact(dbTx, deleteAccountIndexList)
-			if err != nil {
-				return fmt.Errorf("roll back account,delete account failed: %s", err.Error())
+			from := 0
+			to := 0
+			batch := 1000
+			count := len(deleteAccountIndexList)
+			for from < count {
+				to = from + batch
+				if to > count {
+					to = count
+				}
+				err := bc.AccountModel.DeleteByIndexesInTransact(dbTx, deleteAccountIndexList[from:to])
+				if err != nil {
+					return fmt.Errorf("roll back account,delete account failed: %s", err.Error())
+				}
+				from = to
 			}
 		}
 
@@ -477,9 +490,20 @@ func rollbackFunc(configAll Config, bc *BlockChain, accountIndexList []int64, nf
 			for k := range deleteNftIndexMap {
 				deleteNftIndexList = append(deleteNftIndexList, k)
 			}
-			err := bc.L2NftModel.DeleteByIndexesInTransact(dbTx, deleteNftIndexList)
-			if err != nil {
-				return fmt.Errorf("roll back nft,delete nft failed: %s", err.Error())
+			from := 0
+			to := 0
+			batch := 1000
+			count := len(deleteNftIndexList)
+			for from < count {
+				to = from + batch
+				if to > count {
+					to = count
+				}
+				err := bc.L2NftModel.DeleteByIndexesInTransact(dbTx, deleteNftIndexList)
+				if err != nil {
+					return fmt.Errorf("roll back nft,delete nft failed: %s", err.Error())
+				}
+				from = to
 			}
 		}
 
@@ -910,8 +934,6 @@ func (bc *BlockChain) LoadAllAccounts(pool *ants.Pool) error {
 	start := time.Now()
 	logx.Infof("load all accounts start")
 	totalTask := 0
-	errChan := make(chan error, 1)
-	defer close(errChan)
 
 	batchReloadSize := 1000
 	maxAccountIndex, err := bc.AccountModel.GetMaxAccountIndex()
@@ -921,6 +943,10 @@ func (bc *BlockChain) LoadAllAccounts(pool *ants.Pool) error {
 	if maxAccountIndex == -1 {
 		return nil
 	}
+
+	errChan := make(chan error, common2.MaxInt64(maxAccountIndex/int64(batchReloadSize), 1))
+	defer close(errChan)
+
 	for i := 0; int64(i) <= maxAccountIndex; i += batchReloadSize {
 		toAccountIndex := int64(i+batchReloadSize) - 1
 		if toAccountIndex > maxAccountIndex {
@@ -969,8 +995,6 @@ func (bc *BlockChain) LoadAllNfts(pool *ants.Pool) error {
 	start := time.Now()
 	logx.Infof("load all nfts start")
 	totalTask := 0
-	errChan := make(chan error, 1)
-	defer close(errChan)
 
 	batchReloadSize := 1000
 	maxNftIndex, err := bc.L2NftModel.GetMaxNftIndex()
@@ -980,6 +1004,10 @@ func (bc *BlockChain) LoadAllNfts(pool *ants.Pool) error {
 	if maxNftIndex == -1 {
 		return nil
 	}
+
+	errChan := make(chan error, common2.MaxInt64(maxNftIndex/int64(batchReloadSize), 1))
+	defer close(errChan)
+
 	for i := 0; int64(i) <= maxNftIndex; i += batchReloadSize {
 		toNftIndex := int64(i+batchReloadSize) - 1
 		if toNftIndex > maxNftIndex {

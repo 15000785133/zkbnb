@@ -148,12 +148,13 @@ func (w *Witness) initState(shouldCheckStateRoot bool) error {
 	}
 
 	// dbinitializer tree database
-	treeCtx, err := tree.NewContext("witness", w.config.TreeDB.Driver, false, false, w.config.TreeDB.RoutinePoolSize, &w.config.TreeDB.LevelDBOption, &w.config.TreeDB.RedisDBOption)
+	treeCtx, err := tree.NewContext("witness", w.config.TreeDB.Driver, false, false, w.config.TreeDB.RoutinePoolSize, &w.config.TreeDB.LevelDBOption, &w.config.TreeDB.RedisDBOption, w.config.TreeDB.AssetTreeCacheSize, true, w.config.DbRoutineSize)
 	if err != nil {
 		return err
 	}
 
 	treeCtx.SetOptions(bsmt.BatchSizeLimit(3 * 1024 * 1024))
+	treeCtx.SetBatchReloadSize(w.config.DbBatchSize)
 	err = tree.SetupTreeDB(treeCtx)
 	if err != nil {
 		return fmt.Errorf("init tree database failed %v", err)
@@ -178,8 +179,6 @@ func (w *Witness) initState(shouldCheckStateRoot bool) error {
 		accountIndexes,
 		witnessHeight,
 		treeCtx,
-		w.config.TreeDB.AssetTreeCacheSize,
-		true,
 	)
 	// the blockHeight depends on the proof start position
 	if err != nil {
@@ -191,8 +190,7 @@ func (w *Witness) initState(shouldCheckStateRoot bool) error {
 		accountIndexMap[accountIndex] = true
 	}
 
-	w.nftTree, err = tree.InitNftTree(w.nftModel, w.nftHistoryModel, witnessHeight,
-		treeCtx, true)
+	w.nftTree, err = tree.InitNftTree(w.nftModel, w.nftHistoryModel, witnessHeight, treeCtx)
 	if err != nil {
 		return fmt.Errorf("initNftTree error: %v", err)
 	}
@@ -226,29 +224,24 @@ func (w *Witness) GenerateBlockWitness() (err error) {
 		}
 		return nil
 	}
-	// get latestVerifiedBlockNr
-	latestVerifiedBlockNr, err := w.BlockModel.GetLatestVerifiedHeight()
-	if err != nil {
-		return err
-	}
 
 	// scan each block
 	for _, block := range blocks {
 		ctx := log.NewCtxWithKV(log.BlockHeightContext, block.BlockHeight)
 		logx.WithContext(ctx).Infof("construct witness for block %d", block.BlockHeight)
 		// Step1: construct witness
-		blockWitness, err := w.constructBlockWitness(block, latestVerifiedBlockNr, ctx)
+		blockWitness, err := w.constructBlockWitness(block, ctx)
 		if err != nil {
 			return fmt.Errorf("failed to construct block witness, block:%d, err: %v", block.BlockHeight, err)
 		}
 		// Step2: commit trees for witness
-		err = tree.CommitTrees(uint64(latestVerifiedBlockNr), block.BlockHeight, w.accountTree, w.assetTrees, w.nftTree)
+		err = tree.CommitTrees(uint64(block.BlockHeight-1), block.BlockHeight, w.accountTree, w.assetTrees, w.nftTree)
 		if err != nil {
 			return fmt.Errorf("unable to commit trees after txs is executed, block:%d, error: %v", block.BlockHeight, err)
 		}
 		// Step3: insert witness into database
 		err = w.blockWitnessModel.CreateBlockWitness(blockWitness)
-		l2BlockWitnessGenerateHeightMetric.Set(float64(latestVerifiedBlockNr))
+		l2BlockWitnessGenerateHeightMetric.Set(float64(block.BlockHeight - 1))
 		AccountLatestVersionTreeMetric.Set(float64(w.accountTree.LatestVersion()))
 		AccountRecentVersionTreeMetric.Set(float64(w.accountTree.RecentVersion()))
 		NftTreeLatestVersionMetric.Set(float64(w.nftTree.LatestVersion()))
@@ -338,7 +331,7 @@ func (w *Witness) getNextWitnessToCheck() (int64, error) {
 	return endToCheck + 1, nil
 }
 
-func (w *Witness) constructBlockWitness(block *block.Block, latestVerifiedBlockNr int64, ctx context.Context) (*blockwitness.BlockWitness, error) {
+func (w *Witness) constructBlockWitness(block *block.Block, ctx context.Context) (*blockwitness.BlockWitness, error) {
 	var oldStateRoot, newStateRoot []byte
 	txsWitness := make([]*utils.TxWitness, 0, block.BlockSize)
 	// scan each transaction
@@ -347,7 +340,7 @@ func (w *Witness) constructBlockWitness(block *block.Block, latestVerifiedBlockN
 		return nil, err
 	}
 	for idx, tx := range block.Txs {
-		txWitness, err := w.helper.ConstructTxWitness(tx, uint64(latestVerifiedBlockNr), ctx)
+		txWitness, err := w.helper.ConstructTxWitness(tx, ctx)
 		if err != nil {
 			return nil, err
 		}

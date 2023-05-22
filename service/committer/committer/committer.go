@@ -69,6 +69,7 @@ func NewCommitter(config *config.Config) (*Committer, error) {
 		return nil, err
 	}
 
+	bc, err := core.NewBlockChain(&config.ChainConfig, config.BlockConfig.MaxPackedInterval, "committer")
 	configAll := core.Config{FunctionNameTest: config.BlockConfig.FunctionNameTest, FeatureTest: config.BlockConfig.FeatureTest}
 	bc, err := core.NewBlockChain(&config.ChainConfig, configAll, "committer")
 	if err != nil {
@@ -77,7 +78,7 @@ func NewCommitter(config *config.Config) (*Committer, error) {
 
 	saveBlockDataPoolSize := config.BlockConfig.SaveBlockDataPoolSize
 	if saveBlockDataPoolSize == 0 {
-		saveBlockDataPoolSize = 100
+		saveBlockDataPoolSize = 200
 	}
 	if config.BlockConfig.MaxPackedInterval == 0 {
 		config.BlockConfig.MaxPackedInterval = MaxPackedInterval
@@ -142,16 +143,18 @@ func (c *Committer) Run() error {
 		return c.finalSaveBlockDataFunc(item.(*block.BlockStates))
 	})
 
-	//load accounts from db to memcache
-	err := c.bc.LoadAllAccounts(c.pool)
-	if err != nil {
-		return err
-	}
+	if !c.config.BlockConfig.DisableLoadAllAccounts {
+		//load accounts from db to memcache
+		err := c.bc.LoadAllAccounts(c.pool)
+		if err != nil {
+			return err
+		}
 
-	//load nfts from db to memcache
-	err = c.bc.LoadAllNfts(c.pool)
-	if err != nil {
-		return err
+		//load nfts from db to memcache
+		err = c.bc.LoadAllNfts(c.pool)
+		if err != nil {
+			return err
+		}
 	}
 
 	c.executeTxWorker.Start()
@@ -164,7 +167,7 @@ func (c *Committer) Run() error {
 	c.finalSaveBlockDataWorker.Start()
 
 	//pull pool txs from db to queue
-	err = c.pullPoolTxsToQueue()
+	err := c.pullPoolTxsToQueue()
 	if err != nil {
 		return err
 	}
@@ -707,12 +710,6 @@ func (c *Committer) preSaveBlockDataFunc(stateDataCopy *statedb.StateDataCopy) e
 		return fmt.Errorf("preSaveBlockDataFunc failed:%s,blockHeight:%d", err, stateDataCopy.CurrentBlock.BlockHeight)
 	}
 
-	latestVerifiedBlockNr, err := c.bc.BlockModel.GetLatestVerifiedHeight()
-	if err != nil {
-		return fmt.Errorf("get latest verified height failed:%s", err.Error())
-	}
-	c.bc.Statedb.UpdatePrunedBlockHeight(latestVerifiedBlockNr)
-
 	metrics.PreSaveBlockDataMetrics.WithLabelValues("all").Set(float64(time.Since(start).Milliseconds()))
 	c.updateAssetTreeWorker.Enqueue(stateDataCopy)
 	common.Test(c.config.BlockConfig.FeatureTest, c.config.BlockConfig.FunctionNameTest, "preSaveBlockDataFunc")
@@ -772,7 +769,7 @@ func (c *Committer) saveBlockDataFunc(blockStates *block.BlockStates) error {
 	ctx := log.NewCtxWithKV(log.BlockHeightContext, blockStates.Block.BlockHeight)
 	logx.WithContext(ctx).Infof("saveBlockDataFunc start, blockHeight:%d", blockStates.Block.BlockHeight)
 	totalTask := 0
-	errChan := make(chan error, 1)
+	errChan := make(chan error, 10)
 	defer close(errChan)
 	var err error
 
@@ -1094,6 +1091,7 @@ func (c *Committer) finalSaveBlockDataFunc(blockStates *block.BlockStates) error
 		return fmt.Errorf("finalSaveBlockDataFunc failed:%s,blockHeight:%d", err.Error(), blockStates.Block.BlockHeight)
 	}
 	c.bc.Statedb.UpdateMaxPoolTxIdFinished(blockStates.Block.Txs[len(blockStates.Block.Txs)-1].PoolTxId)
+	c.bc.Statedb.UpdatePrunedBlockHeight(blockStates.Block.BlockHeight)
 	metrics.L2BlockDbHeightMetric.Set(float64(blockStates.Block.BlockHeight))
 	metrics.FinalSaveBlockDataMetrics.WithLabelValues("all").Set(float64(time.Since(start).Milliseconds()))
 	return nil
@@ -1174,6 +1172,7 @@ func (c *Committer) getLatestExecutedRequestId() (int64, error) {
 }
 
 func (c *Committer) preLoadAccountAndNft(txs []*tx.Tx) {
+	var start time.Time
 	accountIndexMap := make(map[int64]bool, 0)
 	nftIndexMap := make(map[int64]bool, 0)
 	addressMap := make(map[string]bool, 0)
@@ -1181,6 +1180,7 @@ func (c *Committer) preLoadAccountAndNft(txs []*tx.Tx) {
 		c.bc.PreApplyTransaction(poolTx, accountIndexMap, nftIndexMap, addressMap)
 	}
 	c.bc.Statedb.PreLoadAccountAndNft(accountIndexMap, nftIndexMap, addressMap)
+	metrics.PreLoadAccountAndNftMetrics.Set(float64(time.Since(start).Milliseconds()))
 }
 
 func (c *Committer) PendingTxNum() {
