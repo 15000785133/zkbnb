@@ -185,16 +185,14 @@ func InitApolloClientInstance(appId, namespace string) (agollo.Client, error) {
 	apolloClientKey := fmt.Sprintf("%s:%s", appId, namespace)
 	if client := apolloClientMap[apolloClientKey]; client == nil {
 		// Load and check all the apollo parameters from environment variables
-		//cluster := os.Getenv(Cluster)
-		//if len(cluster) == 0 {
-		//	return nil, errors.New("apolloCluster is not set in environment variables")
-		//}
-		cluster := "chaos"
-		//endpoint := os.Getenv(Endpoint)
-		//if len(endpoint) == 0 {
-		//	return nil, errors.New("apolloEndpoint is not set in environment variables")
-		//}
-		endpoint := "http://internal-tf-cm-test-apollo-config-alb-2119591301.ap-northeast-1.elb.amazonaws.com:9028"
+		cluster := os.Getenv(Cluster)
+		if len(cluster) == 0 {
+			return nil, errors.New("apolloCluster is not set in environment variables")
+		}
+		endpoint := os.Getenv(Endpoint)
+		if len(endpoint) == 0 {
+			return nil, errors.New("apolloEndpoint is not set in environment variables")
+		}
 		// Construct the apollo config for creating apollo client
 		apolloConfig := &apollo.AppConfig{
 			AppID:          appId,
