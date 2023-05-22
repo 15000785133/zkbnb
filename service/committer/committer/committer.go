@@ -69,9 +69,8 @@ func NewCommitter(config *config.Config) (*Committer, error) {
 		return nil, err
 	}
 
-	bc, err := core.NewBlockChain(&config.ChainConfig, config.BlockConfig.MaxPackedInterval, "committer")
 	configAll := core.Config{FunctionNameTest: config.BlockConfig.FunctionNameTest, FeatureTest: config.BlockConfig.FeatureTest}
-	bc, err := core.NewBlockChain(&config.ChainConfig, configAll, "committer")
+	bc, err := core.NewBlockChain(&config.ChainConfig, configAll, config.BlockConfig.MaxPackedInterval, "committer")
 	if err != nil {
 		return nil, fmt.Errorf("new blockchain error: %v", err)
 	}
